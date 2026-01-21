@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - PLD BDU</title>
+    <meta name="description" content="Panel de Control - Sistema de Prevención de Lavado de Dinero">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="https://thumbs2.imgbox.com/a5/db/28bD5e7C_t.jpg">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/design-system.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/layouts.css">
+    <link rel="stylesheet" href="css/chat-widget.css">
+    <link rel="stylesheet" href="css/workspaces.css">
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <img src="https://thumbs2.imgbox.com/a5/db/28bD5e7C_t.jpg" alt="Logo" class="sidebar-logo">
+            <div>
+                <div class="sidebar-title">PLD BDU</div>
+                <div class="sidebar-subtitle">Sistema PLD/FT</div>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <ul class="sidebar-menu" id="sidebarMenu">
+                <!-- Menu items will be rendered based on user role -->
+            </ul>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="sidebar-user-avatar" id="userAvatar">A</div>
+                <div class="sidebar-user-info">
+                    <div class="sidebar-user-name" id="userName">Usuario</div>
+                    <div class="sidebar-user-role" id="userRole">Rol</div>
+                </div>
+                <button class="btn btn-ghost btn-icon" onclick="handleLogout()" title="Cerrar Sesión">
+                    🚪
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="layout-main">
+        <!-- Confidentiality Banner -->
+        <div class="confidentiality-banner">
+            <span class="confidentiality-banner-icon">⚠️</span>
+            <span class="confidentiality-banner-text">
+                <strong>INFORMACIÓN CONFIDENCIAL</strong> - Los datos se almacenan localmente en su navegador
+                (IndexedDB)
+            </span>
+        </div>
+
+        <!-- Page Header -->
+        <div class="page-header">
+            <div>
+                <h1 class="page-title" id="pageTitle">Dashboard</h1>
+                <p class="page-subtitle" id="pageSubtitle">Resumen general del sistema</p>
+            </div>
+            <div class="page-actions" id="pageActions" style="display: flex; gap: 12px; align-items: center;">
+                <!-- Company Selector (Admin Only) -->
+                <div id="empresaSelectorContainer" class="hidden">
+                    <select id="empresaSelector" class="form-select" style="min-width: 200px;"
+                        onchange="changeEmpresa(this.value)">
+                        <!-- Options loaded by JS -->
+                    </select>
+                </div>
+
+                <!-- Notifications Badge -->
+                <div id="notificationsBtn" class="btn btn-ghost" style="position: relative;"
+                    onclick="toggleNotificationsPanel()">
+                    🔔
+                    <span id="notificationsBadge" class="hidden"
+                        style="position: absolute; top: -4px; right: -4px; background: var(--color-danger); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; font-weight: 600;">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notifications Panel (Hidden by default) -->
+        <!-- Notifications Panel (Fixed Opacity) -->
+        <div id="notificationsPanel" class="hidden"
+            style="position: absolute; right: 24px; top: 160px; width: 360px; max-height: 400px; background: #0a1628; border: 1px solid var(--glass-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); z-index: 1000; overflow: hidden;">
+            <div style="padding: 16px; border-bottom: 1px solid var(--border-color);">
+                <h4 style="margin: 0;">🔔 Notificaciones</h4>
+            </div>
+            <div id="notificationsList" style="max-height: 300px; overflow-y: auto; padding: 8px;">
+                <p class="text-muted text-center" style="padding: 24px;">No hay notificaciones</p>
+            </div>
+            <div style="padding: 12px; border-top: 1px solid var(--border-color); text-align: center;">
+                <button class="btn btn-ghost btn-sm" onclick="markAllNotificationsRead()">Marcar todas como
+                    leídas</button>
+            </div>
+        </div>
+
+        <!-- Tabs Navigation -->
+
+
+
+
+
+
+        <!-- Tab Contents -->
+        <div id="tabContents">
+            <!-- ================================ -->
+            <!-- TAB: Configuration (Admin Only) -->
+            <!-- ================================ -->
+            <div id="tab-config" class="tab-content">
+                <div class="section">
+                    <div class="section-header">
+                        <h3 class="section-title">👥 Gestión de Usuarios</h3>
+                        <button class="btn btn-primary" onclick="showInviteModal()">📧 Invitar Usuario</button>
+                    </div>
+                    <div class="card">
+                        <p><strong>Tu Usuario:</strong> <span id="currentUserEmail">--</span></p>
+                        <p class="text-muted" style="margin-top: 8px;">Como administrador, puedes invitar a otros
+                            oficiales de cumplimiento.</p>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-header">
+                        <h3 class="section-title">⚙️ Parámetros del Sistema</h3>
+                    </div>
+                    <div class="card">
+                        <!-- Datos del Sujeto Obligado -->
+                        <h4 style="margin-bottom: 16px; color: var(--text-primary);">🏢 Datos del Sujeto Obligado</h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">RFC Sujeto Obligado</label>
+                                <input type="text" id="cfgRFC" class="form-input" value="SPE091216B35">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Razón Social</label>
+                                <input type="text" id="cfgRazonSocial" class="form-input" value="10BET CASINO EN LÍNEA">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Nombre Comercial</label>
+                                <input type="text" id="cfgNombreComercial" class="form-input"
+                                    placeholder="Nombre comercial">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Clave Sujeto Obligado (14 dígitos)</label>
+                                <input type="text" id="cfgClaveSO" class="form-input" placeholder="SAT14DIGITOS123"
+                                    maxlength="14">
+                            </div>
+                        </div>
+
+                        <hr style="margin: 24px 0; border-color: var(--border-color);">
+
+                        <!-- Giros / Actividades Vulnerables -->
+                        <h4 style="margin-bottom: 16px; color: var(--text-primary);">📋 Giros (Actividades Vulnerables)
+                        </h4>
+                        <p class="text-muted" style="margin-bottom: 16px; font-size: 0.9em;">
+                            Selecciona los giros que aplican a esta empresa. Los umbrales se configuran automáticamente
+                            según la LFPIORPI.
+                        </p>
+
+                        <div class="form-group">
+                            <label class="form-label">Giros Activos</label>
+                            <div id="girosCheckboxContainer"
+                                style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px;">
+                                <!-- Giros rendered by JS -->
+                            </div>
+                        </div>
+
+                        <!-- Giro Principal -->
+                        <div class="form-group" style="margin-top: 16px;">
+                            <label class="form-label">Giro Principal (para reportes)</label>
+                            <select id="cfgGiroPrincipal" class="form-select" onchange="updateUmbralesGiro()">
+                                <!-- Options loaded by JS -->
+                            </select>
+                        </div>
+
+                        <hr style="margin: 24px 0; border-color: var(--border-color);">
+
+                        <!-- UMA y Umbrales -->
+                        <h4 style="margin-bottom: 16px; color: var(--text-primary);">💰 Valor UMA y Umbrales</h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">Año UMA</label>
+                                <select id="cfgYear" class="form-select" onchange="updateUMAValue()">
+                                    <option value="2025" selected>2025</option>
+                                    <option value="2024">2024</option>
+                                    <option value="2023">2023</option>
+                                    <option value="2022">2022</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Valor UMA Diario</label>
+                                <input type="number" id="cfgUMA" class="form-input" value="113.14" step="0.01" readonly>
+                                <small class="text-muted">Actualizado automáticamente</small>
+                            </div>
+                        </div>
+
+                        <!-- Umbrales del Giro (solo lectura, auto-calculados) -->
+                        <div id="umbralesGiroInfo"
+                            style="margin-top: 16px; padding: 16px; background: var(--accent-soft); border-radius: var(--radius-md); border: 1px solid var(--accent-primary);">
+                            <h5 style="margin: 0 0 12px 0;">📊 Umbrales del Giro Seleccionado</h5>
+                            <div class="form-grid" style="grid-template-columns: repeat(4, 1fr);">
+                                <div>
+                                    <small class="text-muted">Identificación (UMA)</small>
+                                    <div id="umbralIdUMA" style="font-size: 1.2em; font-weight: 600;">325</div>
+                                </div>
+                                <div>
+                                    <small class="text-muted">Identificación ($MXN)</small>
+                                    <div id="umbralIdMXN"
+                                        style="font-size: 1.2em; font-weight: 600; color: var(--color-info);">$36,770
+                                    </div>
+                                </div>
+                                <div>
+                                    <small class="text-muted">Aviso (UMA)</small>
+                                    <div id="umbralAvisoUMA" style="font-size: 1.2em; font-weight: 600;">645</div>
+                                </div>
+                                <div>
+                                    <small class="text-muted">Aviso ($MXN)</small>
+                                    <div id="umbralAvisoMXN"
+                                        style="font-size: 1.2em; font-weight: 600; color: var(--color-danger);">$72,975
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Umbrales personalizados (override) -->
+                        <details style="margin-top: 16px;">
+                            <summary class="text-muted" style="cursor: pointer;">⚠️ Personalizar umbrales manualmente
+                                (solo si difieren del estándar)</summary>
+                            <div
+                                style="margin-top: 12px; padding: 16px; background: rgba(239, 68, 68, 0.05); border-radius: var(--radius-md);">
+                                <p class="text-muted" style="font-size: 0.85em; margin-bottom: 12px;">
+                                    Los umbrales estándar se calculan automáticamente. Solo modifica si tienes razón
+                                    específica.
+                                </p>
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label class="form-label">Umbral Aviso (UMA) - Override</label>
+                                        <input type="number" id="cfgAvisoOverride" class="form-input"
+                                            placeholder="Dejar vacío para usar estándar">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Umbral Monitoreo (UMA) - Override</label>
+                                        <input type="number" id="cfgMonitoreoOverride" class="form-input"
+                                            placeholder="Dejar vacío para usar estándar">
+                                    </div>
+                                </div>
+                            </div>
+                        </details>
+
+                        <div style="margin-top: 24px;">
+                            <button class="btn btn-primary" onclick="saveConfig()">💾 Guardar Configuración</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-header">
+                        <h3 class="section-title">📦 Respaldo de Base de Datos</h3>
+                    </div>
+                    <div class="card">
+                        <p class="text-muted" style="margin-bottom: 16px;">Descarga un respaldo completo (JSON) o
+                            restaura datos previos.</p>
+                        <div class="flex gap-md">
+                            <button class="btn btn-secondary" onclick="exportBackup()">⬇️ Exportar Respaldo</button>
+                            <button class="btn btn-warning" onclick="document.getElementById('fileBackup').click()">⬆️
+                                Restaurar Respaldo</button>
+                            <input type="file" id="fileBackup" accept=".json" class="hidden"
+                                onchange="importBackup(this)">
+                        </div>
+                    </div>
+
+                    <!-- AI Configuration Section -->
+                    <div class="section">
+                        <div class="section-header">
+                            <h3 class="section-title">🤖 Inteligencia Artificial (Gemini)</h3>
+                        </div>
+                        <div class="card">
+                            <p class="text-muted" style="margin-bottom: 16px;">
+                                Configura la API de Google Gemini para habilitar el asistente de soporte, análisis de
+                                riesgo automático y generación de narrativas.
+                            </p>
+
+                            <div class="form-group">
+                                <label class="form-label">API Key de Gemini</label>
+                                <div style="display: flex; gap: 12px;">
+                                    <input type="password" id="cfgGeminiApiKey" class="form-input"
+                                        placeholder="Ingresa tu API key de Gemini" style="flex: 1;">
+                                    <button class="btn btn-secondary" onclick="toggleApiKeyVisibility()">👁️</button>
+                                </div>
+                                <small class="text-muted" style="margin-top: 8px; display: block;">
+                                    Obtén tu API key gratis en: <a href="https://aistudio.google.com/apikey"
+                                        target="_blank" style="color: var(--accent-primary);">Google AI Studio</a>
+                                </small>
+                            </div>
+
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                    <input type="checkbox" id="cfgAiDemoMode" onchange="toggleAiDemoMode()"
+                                        style="width: 18px; height: 18px;">
+                                    <span><strong>Activar Modo Demo</strong> (Sin API Key)</span>
+                                </label>
+                                <small class="text-muted" style="margin-left: 28px;">Usa respuestas simuladas para
+                                    probar
+                                    la funcionalidad.</small>
+                            </div>
+
+                            <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
+                                <button class="btn btn-primary" onclick="saveGeminiApiKey()">💾 Guardar API Key</button>
+                                <button class="btn btn-secondary" onclick="testGeminiConnection()">🔌 Probar
+                                    Conexión</button>
+                            </div>
+
+                            <div id="geminiTestResult" style="margin-top: 16px;"></div>
+
+                            <!-- AI Features Status -->
+                            <div id="aiFeaturesStatus"
+                                style="margin-top: 24px; padding: 16px; background: var(--surface-secondary); border-radius: var(--radius-md);">
+                                <h5 style="margin: 0 0 12px 0;">🎯 Funciones Habilitadas</h5>
+                                <div class="form-grid" style="grid-template-columns: repeat(2, 1fr);">
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <span id="aiSoporteStatus">⚪</span> Asistente de Soporte
+                                    </div>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <span id="aiRiesgoStatus">⚪</span> Análisis de Riesgo
+                                    </div>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <span id="aiNarrativaStatus">⚪</span> Generador de Narrativas
+                                    </div>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <span id="aiAnomaliasStatus">⚪</span> Detector de Anomalías
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================================ -->
+            <!-- TAB: Data Upload (Admin Only) -->
+            <!-- ================================ -->
+            <div id="tab-upload" class="tab-content">
+                <div class="section">
+                    <div class="section-header">
+                        <h3 class="section-title">📁 Carga de Archivo Mensual</h3>
+                    </div>
+                    <div class="card">
+                        <div class="file-upload" onclick="document.getElementById('fileExcel').click()">
+                            <div class="file-upload-icon">📊</div>
+                            <p class="file-upload-text">
+                                <strong>Arrastra tu archivo Excel mensual aquí</strong><br>
+                                <span class="text-muted">o haz clic para seleccionar</span>
+                            </p>
+                            <input type="file" id="fileExcel" accept=".xlsx,.xls" class="hidden">
+                        </div>
+                        <div id="fileInfo" class="hidden"
+                            style="margin-top: 16px; padding: 16px; background: var(--accent-soft); border-radius: var(--radius-md);">
+                            <span id="fileName"></span>
+                        </div>
+                        <div style="margin-top: 24px;">
+                            <button class="btn btn-success btn-lg" onclick="processFile()">🔄 Procesar e Insertar en
+                                DB</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================================ -->
+            <!-- TAB: Operations -->
+            <!-- ================================ -->
+            <div id="tab-operations" class="tab-content">
+                <div class="section">
+                    <div class="section-header">
+                        <h3 class="section-title">📊 Operaciones por Periodo</h3>
+                        <select id="periodoSelector" class="form-select" style="width: auto;"
+                            onchange="loadOperations()">
+                            <option value="">Selecciona Periodo...</option>
+                        </select>
+                    </div>
+
+                    <!-- Stats Cards -->
+                    <div class="stats-grid">
+                        <div class="stat-card stat-card--deposits" onclick="filterOperations('deposito')">
+                            <span class="stat-icon">💰</span>
+                            <div class="stat-value" id="statDeposits">0</div>
+                            <div class="stat-label">Depósitos</div>
+                        </div>
+                        <div class="stat-card stat-card--withdrawals" onclick="filterOperations('retiro')">
+                            <span class="stat-icon">💸</span>
+                            <div class="stat-value" id="statWithdrawals">0</div>
+                            <div class="stat-label">Retiros</div>
+                        </div>
+                        <div class="stat-card stat-card--alerts" onclick="filterOperations('aviso')">
+                            <span class="stat-icon">🚨</span>
+                            <div class="stat-value" id="statAlerts">0</div>
+                            <div class="stat-label">Avisos</div>
+                        </div>
+                        <div class="stat-card stat-card--monitoring" onclick="filterOperations('monitoreo')">
+                            <span class="stat-icon">👁️</span>
+                            <div class="stat-value" id="statMonitoring">0</div>
+                            <div class="stat-label">Monitoreos</div>
+                        </div>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="card" style="margin-bottom: 24px;">
+                        <div class="form-grid" style="grid-template-columns: 1fr 200px auto;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <input type="text" id="searchOps" class="form-input"
+                                    placeholder="Buscar por usuario, código o RFC..." onkeyup="applyFilters()">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <select id="filterStatus" class="form-select" onchange="applyFilters()">
+                                    <option value="">Todos los estados</option>
+                                    <option value="aviso">Solo Avisos</option>
+                                    <option value="monitoreo">Solo Monitoreo</option>
+                                    <option value="normal">Solo Normal</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-ghost" onclick="clearFilters()">Limpiar Filtros</button>
+                        </div>
+                    </div>
+
+                    <!-- Chart -->
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h4 class="chart-title">Distribución de Operaciones</h4>
+                        </div>
+                        <canvas id="dashboardChart" height="100"></canvas>
+                    </div>
+
+                    <!-- Tables -->
+                    <div id="tablesContainer">
+                        <h4 style="margin-bottom: 16px;">💰 Depósitos</h4>
+                        <div class="table-container" style="margin-bottom: 24px;">
+                            <table class="table" id="tableDeposits">
+                                <thead>
+                                    <tr>
+                                        <th>Usuario</th>
+                                        <th>Nombre</th>
+                                        <th>RFC</th>
+                                        <th>Monto</th>
+                                        <th>UMA</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+
+                        <h4 style="margin-bottom: 16px;">💸 Retiros</h4>
+                        <div class="table-container">
+                            <table class="table" id="tableWithdrawals">
+                                <thead>
+                                    <tr>
+                                        <th>Usuario</th>
+                                        <th>Nombre</th>
+                                        <th>RFC</th>
+                                        <th>Monto</th>
+                                        <th>UMA</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================================ -->
+            <!-- TAB: 6-Month Monitoring -->
+            <!-- ================================ -->
+            <div id="tab-monitoring" class="tab-content">
+                <div class="section">
+                    <div class="section-header">
+                        <h3 class="section-title">📈 Monitoreo 6 Meses</h3>
+                        <button class="btn btn-primary" onclick="calculateMonitoring()">🔄 Calcular</button>
+                    </div>
+                    <div class="card">
+                        <p class="text-muted" style="margin-bottom: 16px;">
+                            Análisis de acumulados de 6 meses para detectar operaciones que requieren monitoreo.
+                        </p>
+                        <div class="table-container">
+                            <table class="table" id="tableMonitoring">
+                                <thead>
+                                    <tr>
+                                        <th>Usuario</th>
+                                        <th>Nombre</th>
+                                        <th>Total Depósitos (UMA)</th>
+                                        <th>Total Retiros (UMA)</th>
+                                        <th>Progreso Aviso</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================================ -->
+            <!-- TAB: KYC -->
+            <!-- ================================ -->
+            <div id="tab-kyc" class="tab-content">
+                <div class="section">
+                    <div class="section-header">
+                        <h3 class="section-title">👥 Padrón KYC</h3>
+                        <span class="badge badge-info" id="kycCount">0 clientes</span>
+                    </div>
+
+                    <!-- Demographics Dashboard Row 1 -->
+                    <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 24px;">
+                        <div class="card">
+                            <h4 style="margin-bottom: 12px; font-size: 0.9em; color: var(--text-muted);">📍
+                                Distribución
+                                Geográfica (Estados)</h4>
+                            <div style="height: 200px;"><canvas id="chartStates"></canvas></div>
+                        </div>
+                        <div class="card">
+                            <h4 style="margin-bottom: 12px; font-size: 0.9em; color: var(--text-muted);">⚧️
+                                Distribución
+                                por Sexo</h4>
+                            <div style="height: 200px; display: flex; justify-content: center;"><canvas
+                                    id="chartSex"></canvas></div>
+                        </div>
+                        <div class="card">
+                            <h4 style="margin-bottom: 12px; font-size: 0.9em; color: var(--text-muted);">🎂 Rango de
+                                Edades</h4>
+                            <div style="height: 200px;"><canvas id="chartAges"></canvas></div>
+                        </div>
+                    </div>
+
+                    <!-- ENR 2023 Risk Dashboard -->
+                    <h4 style="margin-bottom: 16px; color: var(--text-primary);">⚡ Evaluación Nacional de Riesgos
+                        2023
+                        (Por Entidad)</h4>
+
+                    <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 24px;">
+                        <div class="card">
+                            <h5 style="margin-bottom: 10px; font-size: 0.85em; color: var(--text-muted);">Nivel de
+                                Riesgo Global</h5>
+                            <div style="height: 150px; display: flex; justify-content: center;"><canvas
+                                    id="chartRiskGlobal"></canvas></div>
+                        </div>
+                        <div class="card">
+                            <h5 style="margin-bottom: 10px; font-size: 0.85em; color: var(--text-muted);">⚠️ Zona
+                                ALTO
+                                Riesgo</h5>
+                            <div style="height: 150px;"><canvas id="chartRiskHigh"></canvas></div>
+                        </div>
+                        <div class="card">
+                            <h5 style="margin-bottom: 10px; font-size: 0.85em; color: var(--text-muted);">⚠️ Zona
+                                MEDIO
+                                Riesgo</h5>
+                            <div style="height: 150px;"><canvas id="chartRiskMed"></canvas></div>
+                        </div>
+                        <div class="card">
+                            <h5 style="margin-bottom: 10px; font-size: 0.85em; color: var(--text-muted);">✅ Zona
+                                BAJO
+                                Riesgo</h5>
+                            <div style="height: 150px;"><canvas id="chartRiskLow"></canvas></div>
+                        </div>
+                    </div>
+
+                    <!-- Network Graph Section -->
+                    <div class="card" style="margin-top: 24px;">
+                        <div class="section-header">
+                            <h4 class="chart-title">🔗 Red de Relaciones</h4>
+                        </div>
+                        <p class="text-muted" style="margin-bottom: 16px;">
+                            Visualización de relaciones entre clientes basada en atributos compartidos (RFC, Domicilio,
+                            Teléfono) y flujo de operaciones.
+                            Riesgo
+                            PLD (Usuarios por Entidad)</h4>
+                        <div id="regions_div"
+                            style="width: 100%; height: 400px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
+                        </div>
+                    </div>
+
+                    <!-- KYC Table -->
+                    <div class="card">
+                        <div class="form-group">
+                            <input type="text" id="searchKYC" class="form-input" placeholder="Buscar cliente..."
+                                onkeyup="filterKYC()">
+                        </div>
+
+                        <!-- PEP/OFAC Verification Section -->
+                        <div
+                            style="margin-bottom: 16px; padding: 16px; background: linear-gradient(135deg, var(--accent-soft), transparent); border-radius: var(--radius-md); border: 1px solid var(--accent-primary);">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                                <div>
+                                    <h5 style="margin: 0;">🔍 Verificación PEP/OFAC/Sanciones</h5>
+                                    <p class="text-muted" style="font-size: 0.85em; margin: 4px 0 0 0;">Verifica
+                                        clientes contra listas de control</p>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="btn btn-secondary btn-sm" onclick="verificarTodosPEP()">🎭
+                                        Verificar
+                                        Todos PEP</button>
+                                    <button class="btn btn-secondary btn-sm" onclick="verificarPaisesRiesgo()">🌍
+                                        Países
+                                        de Riesgo</button>
+                                </div>
+                            </div>
+                            <div id="pepVerificationResult" style="margin-top: 12px;"></div>
+                        </div>
+
+                        <div class="table-container">
+                            <table class="table" id="tableKYC">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Nombre</th>
+                                        <th>Estado</th>
+                                        <th>Edad/Sexo</th>
+                                        <th>RFC / CURP</th>
+                                        <th>Riesgo</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                        <div style="margin-top: 16px;">
+                            <button class="btn btn-danger" onclick="clearKYC()">🗑️ Borrar Todo el Padrón</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================================ -->
+            <!-- TAB: Export -->
+            <!-- ================================ -->
+            <div id="tab-export" class="tab-content">
+                <div class="section">
+                    <div class="section-header">
+                        <h3 class="section-title">📤 Exportar Reportes</h3>
+                    </div>
+
+                    <!-- Giro Selection for Report -->
+                    <div class="card" style="margin-bottom: 24px;">
+                        <h4 style="margin-bottom: 12px;">📋 Seleccionar Actividad Vulnerable</h4>
+                        <p class="text-muted" style="margin-bottom: 16px; font-size: 0.9em;">
+                            Si tu empresa tiene múltiples giros, selecciona para cuál actividad deseas generar el
+                            reporte.
+                            El sistema aplicará los umbrales correspondientes.
+                        </p>
+
+                        <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+                            <div class="form-group">
+                                <label class="form-label">Giro para este Reporte</label>
+                                <select id="exportGiroSelector" class="form-select" onchange="updateExportGiroInfo()">
+                                    <!-- Options loaded dynamically based on configured giros -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Periodo</label>
+                                <select id="exportPeriodoSelector" class="form-select">
+                                    <!-- Options loaded dynamically -->
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Giro Info Panel -->
+                        <div id="exportGiroInfo"
+                            style="margin-top: 16px; padding: 16px; background: var(--surface-secondary); border-radius: var(--radius-md); display: none;">
+                            <div class="form-grid" style="grid-template-columns: repeat(4, 1fr); gap: 16px;">
+                                <div>
+                                    <small class="text-muted">Fracción</small>
+                                    <div id="exportGiroFraccion" style="font-weight: 600;">-</div>
+                                </div>
+                                <div>
+                                    <small class="text-muted">Umbral Aviso</small>
+                                    <div id="exportGiroUmbral" style="font-weight: 600; color: var(--color-danger);">-
+                                    </div>
+                                </div>
+                                <div>
+                                    <small class="text-muted">Umbral en Pesos</small>
+                                    <div id="exportGiroUmbralMXN" style="font-weight: 600; color: var(--color-info);">-
+                                    </div>
+                                </div>
+                                <div>
+                                    <small class="text-muted">Operaciones Reportables</small>
+                                    <div id="exportGiroOpsCount" style="font-weight: 600; color: var(--color-success);">
+                                        -</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Export Actions -->
+                    <div class="grid grid-2">
+                        <div class="card">
+                            <h4 style="margin-bottom: 16px;">📑 Generar XML LFPIORPI</h4>
+                            <p class="text-muted" style="margin-bottom: 16px;">
+                                Genera archivos XML para envío a la UIF según el giro y periodo seleccionados.
+                            </p>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button class="btn btn-primary" onclick="generateXMLForGiro()">📄 Generar
+                                    XML</button>
+                                <button class="btn btn-secondary" onclick="generateXMLInformeCero()">📋 Informe en
+                                    Cero</button>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <h4 style="margin-bottom: 16px;">📊 Exportar a Excel</h4>
+                            <p class="text-muted" style="margin-bottom: 16px;">
+                                Exporta las operaciones del giro seleccionado a un archivo Excel.
+                            </p>
+                            <button class="btn btn-secondary" onclick="exportToExcelForGiro()">📥 Exportar
+                                Excel</button>
+                        </div>
+                    </div>
+
+                    <!-- Multi-Giro Summary (if multiple giros) -->
+                    <div id="multiGiroSummary" class="card hidden" style="margin-top: 24px;">
+                        <h4 style="margin-bottom: 12px;">📊 Resumen Multi-Giro</h4>
+                        <p class="text-muted" style="margin-bottom: 16px;">Tu empresa tiene múltiples actividades.
+                            Aquí
+                            está el resumen por giro:</p>
+                        <div id="multiGiroTable"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================================ -->
+            <!-- TAB: Reports -->
+            <!-- ================================ -->
+            <div id="tab-reports" class="tab-content">
+                <div class="section">
+                    <div class="section-header">
+                        <h3 class="section-title">📋 Banco de Reportes</h3>
+                    </div>
+                    <div class="card">
+                        <div class="table-container">
+                            <table class="table" id="tableReports">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Tipo</th>
+                                        <th>Archivo</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================================ -->
+            <!-- TAB: Audit (Admin Only) -->
+            <!-- ================================ -->
+            <div id="tab-audit" class="tab-content">
+                <div class="section">
+                    <div class="section-header">
+                        <h3 class="section-title">🛡️ Bitácora de Auditoría</h3>
+                    </div>
+                    <div class="card">
+                        <div class="table-container">
+                            <table class="table" id="tableAudit">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha/Hora</th>
+                                        <th>Usuario</th>
+                                        <th>Acción</th>
+                                        <th>Detalles</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================================ -->
+            <!-- TAB: Cumplimiento (NEW) -->
+            <!-- ================================ -->
+            <div id="tab-compliance" class="tab-content">
+                <div class="section">
+                    <div class="section-header">
+                        <h3 class="section-title">📅 Calendario de Obligaciones</h3>
+                        <button class="btn btn-primary" onclick="refreshCompliance()">🔄 Actualizar</button>
+                    </div>
+
+                    <!-- Obligaciones Pendientes -->
+                    <div id="obligacionesContainer" class="grid grid-2" style="margin-bottom: 24px;">
+                        <!-- Rendered by JS -->
+                    </div>
+
+                    <!-- Score de Cumplimiento -->
+                    <div class="card" style="margin-bottom: 24px;">
+                        <div class="flex" style="align-items: center; gap: 24px;">
+                            <div style="text-align: center; min-width: 120px;">
+                                <div id="complianceScore"
+                                    style="font-size: 3rem; font-weight: 800; color: var(--accent-primary);">--
+                                </div>
+                                <div class="text-muted">Score Cumplimiento</div>
+                            </div>
+                            <div style="flex: 1;">
+                                <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
+                                    <div>
+                                        <div class="stat-value" id="metricReportes">0</div>
+                                        <div class="stat-label">Reportes (12m)</div>
+                                    </div>
+                                    <div>
+                                        <div class="stat-value" id="metricOps">0</div>
+                                        <div class="stat-label">Operaciones</div>
+                                    </div>
+                                    <div>
+                                        <div class="stat-value" id="metricAlertas">0</div>
+                                        <div class="stat-label">Alertas</div>
+                                    </div>
+                                    <div>
+                                        <div class="stat-value" id="metricTasa">0%</div>
+                                        <div class="stat-label">Tasa Alertas</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alertas de Patrones -->
+                <div class="section">
+                    <div class="section-header">
+                        <h3 class="section-title">🚨 Alertas de Patrones Inusuales</h3>
+                        <button class="btn btn-secondary" onclick="detectarPatrones()">🔍 Analizar
+                            Operaciones</button>
+                    </div>
+                    <div id="alertasContainer">
+                        <div class="card text-center text-muted">
+                            <p>Haz clic en "Analizar Operaciones" para detectar patrones inusuales</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Validador XML -->
+                <div class="section">
+                    <div class="section-header">
+                        <h3 class="section-title">✅ Validador XML</h3>
+                    </div>
+                    <div class="card">
+                        <!-- File Upload Option -->
+                        <div class="form-group">
+                            <label class="form-label">Cargar archivo XML</label>
+                            <div class="file-upload" style="padding: 24px;"
+                                onclick="document.getElementById('xmlFileInput').click()">
+                                <div class="file-upload-icon">📄</div>
+                                <p class="file-upload-text">
+                                    <strong>Arrastra tu archivo XML aquí</strong><br>
+                                    <span class="text-muted">o haz clic para seleccionar</span>
+                                </p>
+                                <input type="file" id="xmlFileInput" accept=".xml" class="hidden"
+                                    onchange="handleXMLFileUpload(this)">
+                            </div>
+                            <div id="xmlFileName" class="hidden"
+                                style="margin-top: 8px; padding: 8px 12px; background: var(--accent-soft); border-radius: var(--radius-sm);">
+                                <span id="xmlFileNameText"></span>
+                                <button class="btn btn-ghost btn-sm" onclick="clearXMLFile()"
+                                    style="float: right;">✕</button>
+                            </div>
+                        </div>
+
+                        <!-- Text Option (collapsible) -->
+                        <details style="margin-top: 16px;">
+                            <summary class="text-muted" style="cursor: pointer;">O pegar texto XML manualmente
+                            </summary>
+                            <div class="form-group" style="margin-top: 12px;">
+                                <textarea id="xmlValidatorInput" class="form-input" rows="4"
+                                    placeholder="Pega tu XML aquí..."></textarea>
+                            </div>
+                        </details>
+
+                        <div style="margin-top: 16px;">
+                            <button class="btn btn-primary" onclick="validateXMLInput()">✅ Validar XML</button>
+                        </div>
+                        <div id="xmlValidationResult" style="margin-top: 16px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================================ -->
+            <!-- TAB: Soporte (Support System) -->
+            <!-- ================================ -->
+            <div id="tab-soporte" class="tab-content">
+                <!-- AI Assistant Section -->
+                <div class="section" id="aiAssistantSection">
+                    <div class="section-header">
+                        <h3 class="section-title">🤖 Asistente de IA (BDUNITY AI)</h3>
+                        <span id="aiStatusBadge" class="badge badge-secondary">No configurado</span>
+                    </div>
+                    <div class="card">
+                        <div id="aiChatContainer"
+                            style="height: 300px; overflow-y: auto; background: var(--surface-secondary); border-radius: var(--radius-md); padding: 16px; margin-bottom: 16px;">
+                            <div id="aiChatMessages">
+                                <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+                                    <div style="font-size: 2em; margin-bottom: 8px;">🤖</div>
+                                    <p>¡Hola! Soy BDUNITY AI, tu asistente experto en PLD/FT.</p>
+                                    <p style="font-size: 0.9em;">Pregúntame sobre umbrales, generación de XML, KYC,
+                                        o cualquier duda sobre el sistema.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 12px;">
+                            <input type="text" id="aiChatInput" class="form-input" placeholder="Escribe tu pregunta..."
+                                style="flex: 1;" onkeypress="if(event.key==='Enter') sendAIMessage()">
+                            <button class="btn btn-primary" onclick="sendAIMessage()" id="btnAISend">
+                                <span id="aiSendIcon">📤</span> Enviar
+                            </button>
+                            <button class="btn btn-ghost" onclick="clearAIChat()" title="Limpiar chat">🗑️</button>
+                        </div>
+                        <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button class="btn btn-ghost btn-sm"
+                                onclick="askAIQuestion('¿Cuál es el umbral de aviso para mi giro?')">💰
+                                Umbrales</button>
+                            <button class="btn btn-ghost btn-sm"
+                                onclick="askAIQuestion('¿Cómo genero un XML para la UIF?')">📄 Generar XML</button>
+                            <button class="btn btn-ghost btn-sm"
+                                onclick="askAIQuestion('¿Qué es KYC y cómo actualizo los datos?')">👥 KYC</button>
+                            <button class="btn btn-ghost btn-sm"
+                                onclick="askAIQuestion('¿Qué es una operación inusual?')">⚠️ Operaciones</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Knowledge Base Section -->
+                <div class="section">
+                    <div class="section-header">
+                        <h3 class="section-title">📚 Base de Conocimientos</h3>
+                    </div>
+                    <div class="card">
+                        <div class="form-group">
+                            <input type="text" id="searchFAQ" class="form-input" placeholder="🔍 Buscar en FAQs..."
+                                onkeyup="searchFAQ()">
+                        </div>
+                        <div id="faqContainer" style="margin-top: 16px;">
+                            <!-- FAQs rendered by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Empresas (Super Admin Only) -->
+                <div id="tab-empresas" class="tab-content">
+                    <div class="section">
+                        <div class="section-header">
+                            <div>
+                                <h3 class="section-title">Espacios de Trabajo</h3>
+                                <p class="text-muted" style="margin-top: 4px;">Gestiona tus clientes como tableros
+                                    independientes.</p>
+                            </div>
+                            <button class="btn btn-primary"
+                                onclick="document.getElementById('modalNewCompany').classList.add('active')">
+                                ➕ Nuevo Espacio
+                            </button>
+                        </div>
+
+                        <!-- Workspaces Grid (Replaces Table) -->
+                        <div id="companiesGrid" class="workspaces-grid">
+                            <!-- Cards loaded by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Create Ticket Section -->
+                <div class="section">
+                    <div class="section-header">
+                        <h3 class="section-title">🎫 Crear Nuevo Ticket</h3>
+                    </div>
+                    <div class="card">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">Categoría</label>
+                                <select id="ticketCategoria" class="form-select">
+                                    <option value="tecnico">🔧 Problema Técnico</option>
+                                    <option value="xml">📄 Generación XML</option>
+                                    <option value="kyc">👥 Padrón KYC</option>
+                                    <option value="reportes">📊 Reportes</option>
+                                    <option value="acceso">🔐 Acceso/Permisos</option>
+                                    <option value="otro">❓ Otro</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Prioridad</label>
+                                <select id="ticketPrioridad" class="form-select">
+                                    <option value="baja">🟢 Baja</option>
+                                    <option value="normal" selected>🟡 Normal</option>
+                                    <option value="alta">🔴 Alta</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Asunto</label>
+                            <input type="text" id="ticketAsunto" class="form-input"
+                                placeholder="Describe brevemente tu problema">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Descripción Completa</label>
+                            <textarea id="ticketDescripcion" class="form-input" rows="4"
+                                placeholder="Proporciona todos los detalles posibles..."></textarea>
+                        </div>
+                        <button class="btn btn-primary" onclick="crearTicket()">📩 Enviar Ticket</button>
+                    </div>
+                </div>
+
+                <!-- My Tickets Section -->
+                <div class="section">
+                    <div class="section-header">
+                        <h3 class="section-title">📋 Mis Tickets</h3>
+                        <button class="btn btn-secondary btn-sm" onclick="loadMisTickets()">🔄 Actualizar</button>
+                    </div>
+                    <div id="misTicketsContainer" class="card">
+                        <p class="text-muted text-center">Cargando tickets...</p>
+                    </div>
+                </div>
+
+                <!-- Admin: Ticket Management (Admin Only) -->
+                <div class="section" id="adminTicketsSection" style="display: none;">
+                    <div class="section-header">
+                        <h3 class="section-title">🎛️ Gestión de Tickets (Admin)</h3>
+                        <div>
+                            <span id="ticketStats" class="badge badge-info">0 abiertos</span>
+                            <button class="btn btn-secondary btn-sm" onclick="loadAllTickets()">🔄
+                                Actualizar</button>
+                        </div>
+                    </div>
+                    <div id="adminTicketsContainer" class="card">
+                        <p class="text-muted text-center">Cargando tickets...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================================ -->
+            <!-- TAB: Dashboard (Visitor Only) -->
+            <!-- ================================ -->
+            <div id="tab-dashboard" class="tab-content">
+                <div class="section">
+                    <div class="section-header">
+                        <h3 class="section-title">📊 Resumen General</h3>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="dashTotalOps">0</div>
+                            <div class="stat-label">Total Operaciones</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="dashTotalClients">0</div>
+                            <div class="stat-label">Total Clientes</div>
+                        </div>
+                        <div class="stat-card stat-card--alerts">
+                            <div class="stat-value" id="dashAlertRate">0%</div>
+                            <div class="stat-label">Tasa de Alertas</div>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h4 class="chart-title">Tendencias Mensuales</h4>
+                        </div>
+                        <canvas id="visitorChart" height="150"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Invite User Modal -->
+    <div class="modal-overlay" id="inviteModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">📧 Invitar Usuario</h3>
+                <button class="modal-close" onclick="closeInviteModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Correo Electrónico</label>
+                    <input type="email" id="inviteEmail" class="form-input" placeholder="usuario@ejemplo.com">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Rol</label>
+                    <select id="inviteRole" class="form-select">
+                        <option value="user">👤 Usuario</option>
+                        <option value="visitor">👁️ Visitante</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeInviteModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="inviteUser()">Enviar Invitación</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Modal for Ticket Support -->
+    <div id="chatModal" class="hidden"
+        style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: flex; align-items: center; justify-content: center;">
+        <div
+            style="background: var(--surface-primary); width: 90%; max-width: 600px; height: 80vh; max-height: 600px; border-radius: var(--radius-lg); display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow-lg);">
+            <!-- Chat Header -->
+            <div
+                style="padding: 16px 20px; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: white; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h4 id="chatTicketTitle" style="margin: 0;">💬 Chat de Soporte</h4>
+                    <small id="chatTicketNumber" style="opacity: 0.8;">TKT-XXXXXX</small>
+                </div>
+                <button onclick="closeChatModal()"
+                    style="background: transparent; border: none; color: white; font-size: 1.5em; cursor: pointer;">✕</button>
+            </div>
+
+            <!-- Chat Messages -->
+            <div id="chatMessages"
+                style="flex: 1; overflow-y: auto; padding: 16px; background: var(--surface-secondary);">
+                <!-- Messages rendered by JS -->
+            </div>
+
+            <!-- Chat Input -->
+            <div style="padding: 16px; border-top: 1px solid var(--border-color); background: var(--surface-primary);">
+                <div style="display: flex; gap: 12px;">
+                    <input type="text" id="chatInput" class="form-input" placeholder="Escribe tu mensaje..."
+                        style="flex: 1;" onkeypress="if(event.key==='Enter') sendChatMessage()">
+                    <button class="btn btn-primary" onclick="sendChatMessage()">📤 Enviar</button>
+                </div>
+                <div id="chatStatusBar" style="margin-top: 8px; font-size: 0.8em; color: var(--text-muted);"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal New Company -->
+    <div class="modal-overlay" id="modalNewCompany">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Registrar Nueva Empresa</h3>
+                <button class="btn btn-ghost"
+                    onclick="document.getElementById('modalNewCompany').classList.remove('active')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Razón Social</label>
+                    <input type="text" id="newCompName" class="form-input"
+                        placeholder="Ej. Financiera del Norte SA de CV">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">RFC</label>
+                    <input type="text" id="newCompRFC" class="form-input" placeholder="ABC123456789">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email Administrador</label>
+                    <input type="email" id="newCompAdmin" class="form-input" placeholder="admin@empresa.com">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Plan de Servicio</label>
+                    <select id="newCompPlan" class="form-select">
+                        <option value="basic">⭐ Básico (2 Usuarios)</option>
+                        <option value="pro">🚀 Pro (10 Usuarios)</option>
+                        <option value="enterprise">🏢 Enterprise (Ilimitado)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Actividades Vulnerables (Selección Múltiple)</label>
+                    <div
+                        style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 150px; overflow-y: auto; background: var(--bg-tertiary); padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                        <label class="checkbox-label"><input type="checkbox" name="vulnerableAct" value="Inmobiliaria">
+                            🏠 Inmobiliaria</label>
+                        <label class="checkbox-label"><input type="checkbox" name="vulnerableAct" value="Vehículos"> 🚗
+                            Vehículos</label>
+                        <label class="checkbox-label"><input type="checkbox" name="vulnerableAct" value="Joyas/Relojes">
+                            💎 Joyas/Relojes</label>
+                        <label class="checkbox-label"><input type="checkbox" name="vulnerableAct" value="Arte"> 🎨 Obras
+                            de Arte</label>
+                        <label class="checkbox-label"><input type="checkbox" name="vulnerableAct"
+                                value="Tarjetas Crédito"> 💳 Tarjetas Crédito</label>
+                        <label class="checkbox-label"><input type="checkbox" name="vulnerableAct"
+                                value="Mutuo/Préstamo"> 💰 Mutuo/Préstamo</label>
+                        <label class="checkbox-label"><input type="checkbox" name="vulnerableAct" value="Blindaje"> 🛡️
+                            Blindaje</label>
+                        <label class="checkbox-label"><input type="checkbox" name="vulnerableAct" value="Casinos"> 🎰
+                            Casinos</label>
+                        <label class="checkbox-label"><input type="checkbox" name="vulnerableAct"
+                                value="Activos Virtuales"> ₿ Activos Virtuales</label>
+                        <label class="checkbox-label"><input type="checkbox" name="vulnerableAct" value="Donativos"> 🎁
+                            Donativos</label>
+                        <label class="checkbox-label"><input type="checkbox" name="vulnerableAct" value="Outsourcing">
+                            👔 Outsourcing</label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary"
+                    onclick="document.getElementById('modalNewCompany').classList.remove('active')">Cancelar</button>
+                <button class="btn btn-primary" onclick="handleCreateCompany()">Crear Empresa</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Company Details (Enhanced with Logo, Config) -->
+    <div class="modal-overlay" id="modalCompanyDetail">
+        <div class="modal" style="max-width: 900px; width: 95%;">
+            <div class="modal-header">
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <div id="detailLogoPreview" class="company-logo-preview">🏢</div>
+                    <div>
+                        <h3 class="modal-title" id="detailModalTitle">Detalles Empresa</h3>
+                        <small class="text-muted" id="detailModalSubtitle">RFC: ---</small>
+                    </div>
+                </div>
+                <button class="btn btn-ghost"
+                    onclick="document.getElementById('modalCompanyDetail').classList.remove('active')">✕</button>
+            </div>
+            <div class="modal-body" style="padding: 0;">
+                <!-- Tab Navigation -->
+                <div class="detail-tabs">
+                    <button class="detail-tab active" data-tab="info" onclick="switchDetailTab('info')">
+                        📋 Información
+                    </button>
+                    <button class="detail-tab" data-tab="users" onclick="switchDetailTab('users')">
+                        👥 Usuarios
+                    </button>
+                    <button class="detail-tab" data-tab="config" onclick="switchDetailTab('config')">
+                        ⚙️ Configuración
+                    </button>
+                    <button class="detail-tab" data-tab="history" onclick="switchDetailTab('history')">
+                        📜 Historial
+                    </button>
+                </div>
+
+                <!-- Tab: Info -->
+                <div id="detail-info" class="detail-tab-content" style="padding: 24px;">
+                    <div style="display: grid; grid-template-columns: 150px 1fr; gap: 24px;">
+                        <!-- Logo Upload -->
+                        <div style="text-align: center;">
+                            <div id="logoUploadArea" class="logo-upload-area"
+                                onclick="document.getElementById('logoFileInput').click()">
+                                <div id="logoPreviewLarge" class="logo-preview-placeholder">
+                                    <span style="font-size: 3em;">📷</span>
+                                    <p style="margin-top: 8px; font-size: 0.85em;">Subir Logo</p>
+                                </div>
+                            </div>
+                            <input type="file" id="logoFileInput" accept="image/*" style="display: none;"
+                                onchange="handleLogoUpload(this)">
+                            <button class="btn btn-sm btn-ghost" style="margin-top: 8px;"
+                                onclick="removeLogo()">Quitar</button>
+                        </div>
+                        <!-- Company Info -->
+                        <div>
+                            <div class="form-group">
+                                <label class="form-label">Razón Social</label>
+                                <input type="text" id="detailRazonSocial" class="form-input" placeholder="Razón Social">
+                            </div>
+                            <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+                                <div class="form-group">
+                                    <label class="form-label">RFC</label>
+                                    <input type="text" id="detailRFC" class="form-input" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Plan</label>
+                                    <select id="detailPlan" class="form-select">
+                                        <option value="basic">⭐ Básico</option>
+                                        <option value="pro">🚀 Pro</option>
+                                        <option value="enterprise">🏢 Enterprise</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Actividades Vulnerables</label>
+                                <div id="detailActivities" class="activities-display"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 24px; text-align: right;">
+                        <button class="btn btn-primary" onclick="saveCompanyInfo()">💾 Guardar Cambios</button>
+                    </div>
+                </div>
+
+                <!-- Tab: Users -->
+                <div id="detail-users" class="detail-tab-content" style="display: none; padding: 16px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <span class="text-muted" id="userCountLabel">0 usuarios</span>
+                        <button class="btn btn-primary btn-sm" onclick="showInviteToCompanyModal()">➕ Invitar
+                            Usuario</button>
+                    </div>
+                    <table class="table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Rol</th>
+                                <th>Fecha Registro</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detailUsersTable"></tbody>
+                    </table>
+                </div>
+
+                <!-- Tab: Config -->
+                <div id="detail-config" class="detail-tab-content" style="display: none; padding: 24px;">
+                    <h4 style="margin-bottom: 16px;">⚙️ Configuración del Espacio</h4>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Umbral Aviso (UMA)</label>
+                            <input type="number" id="detailUmbralAviso" class="form-input" placeholder="645">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Umbral Identificación (UMA)</label>
+                            <input type="number" id="detailUmbralId" class="form-input" placeholder="325">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">API Key (Opcional)</label>
+                        <input type="password" id="detailApiKey" class="form-input"
+                            placeholder="Para integraciones externas">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Notas Internas (Solo BDUNITY)</label>
+                        <textarea id="detailNotas" class="form-input" rows="3"
+                            placeholder="Notas sobre este cliente..."></textarea>
+                    </div>
+                    <div style="margin-top: 24px; text-align: right;">
+                        <button class="btn btn-primary" onclick="saveCompanyConfig()">💾 Guardar Configuración</button>
+                    </div>
+                </div>
+
+                <!-- Tab: History -->
+                <div id="detail-history" class="detail-tab-content" style="display: none; padding: 16px;">
+                    <table class="table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Usuario</th>
+                                <th>Acción</th>
+                                <th>Detalle</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detailHistoryTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function handleCreateCompany() {
+            const checkboxes = document.querySelectorAll('input[name="vulnerableAct"]:checked');
+            const activities = Array.from(checkboxes).map(cb => cb.value);
+
+            const data = {
+                razonSocial: document.getElementById('newCompName').value,
+                rfc: document.getElementById('newCompRFC').value,
+                adminEmail: document.getElementById('newCompAdmin').value,
+                plan: document.getElementById('newCompPlan').value, // Capture Plan
+                actividades: activities
+            };
+            CompaniesService.createCompany(data).then(success => {
+                if (success) {
+                    document.getElementById('modalNewCompany').classList.remove('active');
+                    CompaniesService.loadCompanies(); // Refresh list
+                }
+            });
+        }
+
+        function switchDetailTab(tab) {
+            document.querySelectorAll('#modalCompanyDetail .tab-btn').forEach(b => {
+                b.style.borderBottom = 'none';
+                b.style.color = 'var(--text-muted)';
+            });
+            event.target.style.borderBottom = '2px solid var(--accent-primary)';
+            event.target.style.color = 'white';
+
+            document.getElementById('detail-users').style.display = tab === 'users' ? 'block' : 'none';
+            document.getElementById('detail-history').style.display = tab === 'history' ? 'block' : 'none';
+        }
+    </script>
+
+    <!-- Floating Chat Button (for quick access) -->
+    <button id="floatingChatBtn" class="hidden" onclick="openLastTicketChat()"
+        style="position: fixed; bottom: 24px; right: 24px; width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: white; font-size: 1.5em; border: none; cursor: pointer; box-shadow: var(--shadow-lg); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+        💬
+        <span id="floatingChatBadge" class="hidden"
+            style="position: absolute; top: -4px; right: -4px; background: var(--color-danger); color: white; font-size: 0.6em; padding: 4px 8px; border-radius: 10px;">0</span>
+    </button>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p class="loading-text" id="loadingText">Cargando...</p>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Floating AI Chat Widget -->
+    <div id="floatingAiWidget">
+        <!-- Chat Window -->
+        <div id="floatingChatWindow" class="hidden floating-chat-window">
+            <!-- Header -->
+            <div class="floating-chat-header">
+                <div class="floating-chat-header-info">
+                    <span style="font-size: 1.5em;">🤖</span>
+                    <div>
+                        <div class="floating-chat-title">BDUNITY AI</div>
+                        <div class="floating-chat-subtitle">Asistente PLD 24/7</div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-ghost btn-sm" onclick="toggleFloatingChat()"
+                        style="color: white; padding: 4px;">✕</button>
+                </div>
+            </div>
+
+            <!-- Messages Area -->
+            <div id="floatingChatMessages" class="floating-chat-messages">
+                <!-- Welcome Message -->
+                <div style="display: flex; justify-content: flex-start; margin-bottom: 12px;">
+                    <div class="chat-message-bubble">
+                        <div class="chat-message-meta">🤖 BDUNITY AI • Ahora</div>
+                        <div style="line-height: 1.4;">¡Hola! Soy tu asistente experto. ¿En qué puedo ayudarte hoy?
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="floating-chat-input-area">
+                <div class="suggestion-chips">
+                    <button class="btn btn-ghost btn-sm suggestion-chip" onclick="askAiFloating('💰 Umbrales')">💰
+                        Umbrales</button>
+                    <button class="btn btn-ghost btn-sm suggestion-chip" onclick="askAiFloating('📋 XML')">📋
+                        XML</button>
+                    <button class="btn btn-ghost btn-sm suggestion-chip" onclick="askAiFloating('👥 KYC')">👥
+                        KYC</button>
+                </div>
+                <div class="input-row">
+                    <input type="text" id="floatingChatInput" class="form-input chat-input"
+                        placeholder="Escribe tu duda aqui..." onkeypress="handleFloatingInput(event)">
+                    <button class="btn btn-primary btn-icon send-btn" onclick="sendFloatingMessage()">➤</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Button -->
+        <button id="floatingAiBtn" onclick="toggleFloatingChat()" class="floating-ai-btn">
+            🤖
+        </button>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/db.js"></script>
+    <script src="js/giros.js"></script>
+    <script src="js/graph-service.js?v=2"></script>
+    <script src="js/empresas.js"></script>
+    <script src="js/xml-generator.js"></script>
+    <script src="js/compliance.js?v=2"></script>
+    <script src="js/listas-control.js"></script>
+    <script src="js/notifications.js"></script>
+    <script src="js/admin-panel.js"></script>
+    <script src="js/admin-companies.js"></script>
+    <script src="js/soporte.js"></script>
+    <script src="js/ai-service.js?v=2"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/app.js?v=2"></script>
+    <script src="js/ui.js"></script>
+    <script>
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', initDashboard);
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PLD BDU - Sistema de Prevención de Lavado de Dinero</title>
+    <meta name="description"
+        content="Sistema de Prevención de Lavado de Dinero y Financiamiento al Terrorismo - Portal PLD">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="https://thumbs2.imgbox.com/a5/db/28bD5e7C_t.jpg">
+
+    <!-- Google Fonts - Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/design-system.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/layouts.css">
+</head>
+
+<body>
+    <!-- Login Page -->
+    <div class="login-page" id="loginPage">
+        <div class="login-container animate-fadeIn">
+            <!-- Login Card -->
+            <div class="login-card" id="loginCard">
+                <img src="https://thumbs2.imgbox.com/a5/db/28bD5e7C_t.jpg" alt="BDU Logo"
+                    class="login-logo animate-glow">
+                <h1 class="login-title">Bienvenido</h1>
+                <p class="login-subtitle">Sistema de Prevención de Lavado de Dinero</p>
+
+                <form class="login-form" id="loginForm" onsubmit="return handleLogin(event)">
+                    <div class="form-group">
+                        <input type="email" id="loginEmail" class="form-input" placeholder="Correo Electrónico"
+                            required>
+                    </div>
+                    <div class="form-group">
+                        <input type="password" id="loginPassword" class="form-input" placeholder="Contraseña" required>
+                    </div>
+                    <div class="form-group">
+                        <select id="loginRole" class="form-select">
+                            <option value="super_admin">♾️ Super Admin (BDUNITY)</option>
+                            <option value="admin">👑 Administrador</option>
+                            <option value="user">👤 Usuario</option>
+                            <option value="visitor">👁️ Visitante</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg w-full">
+                        Iniciar Sesión
+                    </button>
+                </form>
+
+                <div class="login-divider">o</div>
+
+                <button class="btn btn-secondary w-full" onclick="showRecoveryView()">
+                    ¿Olvidaste tu contraseña?
+                </button>
+
+                <p class="login-footer">
+                    <span id="setupLink" class="hidden">
+                        <a href="#" onclick="showSetupView()">Configurar Admin Inicial (Solo 1a vez)</a>
+                    </span>
+                </p>
+            </div>
+
+            <!-- Password Recovery Card -->
+            <div class="login-card hidden" id="recoveryCard">
+                <h1 class="login-title">Recuperar Acceso</h1>
+                <p class="login-subtitle" id="recoveryQuestion">Ingresa tu correo para buscar tu pregunta de seguridad.
+                </p>
+
+                <form class="login-form" id="recoveryForm">
+                    <div class="form-group">
+                        <input type="email" id="recoveryEmail" class="form-input" placeholder="Correo Registrado"
+                            required>
+                    </div>
+                    <div class="form-group hidden" id="securityAnswerGroup">
+                        <input type="text" id="securityAnswer" class="form-input" placeholder="Respuesta de Seguridad">
+                    </div>
+                    <div class="form-group hidden" id="newPasswordGroup">
+                        <input type="password" id="newPassword" class="form-input" placeholder="Nueva Contraseña">
+                    </div>
+                    <button type="button" class="btn btn-primary w-full" id="btnFindUser"
+                        onclick="findSecurityQuestion()">
+                        Buscar Usuario
+                    </button>
+                    <button type="button" class="btn btn-primary w-full hidden" id="btnResetPassword"
+                        onclick="resetPassword()">
+                        Restablecer Contraseña
+                    </button>
+                </form>
+
+                <div class="login-divider">o</div>
+
+                <button class="btn btn-ghost w-full" onclick="showLoginView()">
+                    Volver al Login
+                </button>
+            </div>
+
+            <!-- Admin Setup Card -->
+            <div class="login-card hidden" id="setupCard">
+                <h1 class="login-title">Configuración Inicial</h1>
+                <p class="login-subtitle">Crea la cuenta de administrador principal</p>
+
+                <form class="login-form" id="setupForm" onsubmit="return handleSetup(event)">
+                    <div class="form-group">
+                        <input type="email" id="setupEmail" class="form-input" placeholder="Correo del Administrador"
+                            required>
+                    </div>
+                    <div class="form-group">
+                        <input type="password" id="setupPassword" class="form-input" placeholder="Contraseña" required
+                            minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <input type="password" id="setupPasswordConfirm" class="form-input"
+                            placeholder="Confirmar Contraseña" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="setupSecurityQuestion" class="form-input"
+                            placeholder="Pregunta de Seguridad" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="setupSecurityAnswer" class="form-input"
+                            placeholder="Respuesta de Seguridad" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg w-full">
+                        Crear Cuenta Admin
+                    </button>
+                </form>
+
+                <div class="login-divider">o</div>
+
+                <button class="btn btn-ghost w-full" onclick="showLoginView()">
+                    Volver al Login
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p class="loading-text" id="loadingText">Cargando...</p>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Scripts -->
+    <script src="js/db.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        // View Switching
+        function showLoginView() {
+            document.getElementById('loginCard').classList.remove('hidden');
+            document.getElementById('recoveryCard').classList.add('hidden');
+            document.getElementById('setupCard').classList.add('hidden');
+        }
+
+        function showRecoveryView() {
+            document.getElementById('loginCard').classList.add('hidden');
+            document.getElementById('recoveryCard').classList.remove('hidden');
+            document.getElementById('setupCard').classList.add('hidden');
+        }
+
+        function showSetupView() {
+            document.getElementById('loginCard').classList.add('hidden');
+            document.getElementById('recoveryCard').classList.add('hidden');
+            document.getElementById('setupCard').classList.remove('hidden');
+        }
+
+        // Login Handler
+        async function handleLogin(event) {
+            event.preventDefault();
+
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const role = document.getElementById('loginRole').value;
+
+            showLoading('Verificando credenciales...');
+
+            try {
+                const success = await AuthService.login(email, password, role);
+                if (success) {
+                    showToast('Inicio de sesión exitoso', 'success');
+                    // Redirect to dashboard
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html';
+                    }, 500);
+                } else {
+                    showToast('Credenciales incorrectas', 'danger');
+                }
+            } catch (error) {
+                showToast('Error: ' + error.message, 'danger');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Setup Handler
+        async function handleSetup(event) {
+            event.preventDefault();
+
+            const email = document.getElementById('setupEmail').value;
+            const password = document.getElementById('setupPassword').value;
+            const confirmPassword = document.getElementById('setupPasswordConfirm').value;
+            const question = document.getElementById('setupSecurityQuestion').value;
+            const answer = document.getElementById('setupSecurityAnswer').value;
+
+            if (password !== confirmPassword) {
+                showToast('Las contraseñas no coinciden', 'danger');
+                return false;
+            }
+
+            showLoading('Creando cuenta de administrador...');
+
+            try {
+                await AuthService.setupAdmin(email, password, question, answer);
+                showToast('Cuenta de administrador creada exitosamente', 'success');
+                showLoginView();
+            } catch (error) {
+                showToast('Error: ' + error.message, 'danger');
+            } finally {
+                hideLoading();
+            }
+
+            return false;
+        }
+
+        // Password Recovery
+        async function findSecurityQuestion() {
+            const email = document.getElementById('recoveryEmail').value;
+            if (!email) {
+                showToast('Ingresa tu correo electrónico', 'warning');
+                return;
+            }
+
+            try {
+                const question = await AuthService.getSecurityQuestion(email);
+                if (question) {
+                    document.getElementById('recoveryQuestion').textContent = question;
+                    document.getElementById('securityAnswerGroup').classList.remove('hidden');
+                    document.getElementById('newPasswordGroup').classList.remove('hidden');
+                    document.getElementById('btnFindUser').classList.add('hidden');
+                    document.getElementById('btnResetPassword').classList.remove('hidden');
+                } else {
+                    showToast('Usuario no encontrado', 'danger');
+                }
+            } catch (error) {
+                showToast('Error: ' + error.message, 'danger');
+            }
+        }
+
+        async function resetPassword() {
+            const email = document.getElementById('recoveryEmail').value;
+            const answer = document.getElementById('securityAnswer').value;
+            const newPassword = document.getElementById('newPassword').value;
+
+            if (!answer || !newPassword) {
+                showToast('Completa todos los campos', 'warning');
+                return;
+            }
+
+            try {
+                await AuthService.resetPassword(email, answer, newPassword);
+                showToast('Contraseña restablecida exitosamente', 'success');
+                showLoginView();
+            } catch (error) {
+                showToast('Error: ' + error.message, 'danger');
+            }
+        }
+
+        // UI Helpers
+        function showLoading(text = 'Cargando...') {
+            document.getElementById('loadingText').textContent = text;
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `<span>${message}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            await dbService.init();
+
+            // Check if admin exists
+            const hasAdmin = await AuthService.hasAdminUser();
+            if (!hasAdmin) {
+                document.getElementById('setupLink').classList.remove('hidden');
+            }
+
+            // Check if already logged in
+            const user = AuthService.getCurrentUser();
+            if (user) {
+                window.location.href = 'dashboard.html';
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,295 @@
+/**
+ * Workspaces (Monday.com Style)
+ */
+
+.workspaces-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+    padding: 16px 0;
+}
+
+.workspace-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.workspace-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--accent-primary);
+}
+
+.workspace-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--accent-secondary);
+    opacity: 0.5;
+    transition: opacity 0.3s;
+}
+
+.workspace-card:hover::before {
+    opacity: 1;
+}
+
+/* Card Header */
+.workspace-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+.workspace-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: var(--bg-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5em;
+    color: var(--accent-primary);
+    border: 1px solid var(--glass-border);
+}
+
+.workspace-menu-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.25em;
+    padding: 4px;
+    border-radius: 4px;
+}
+
+.workspace-menu-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+/* Card Info */
+.workspace-title {
+    font-size: 1.1em;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+}
+
+.workspace-meta {
+    font-size: 0.85em;
+    color: var(--text-muted);
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.workspace-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Status Pill */
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75em;
+    font-weight: 600;
+}
+
+.status-pill.active {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.status-pill.inactive {
+    background: rgba(113, 128, 150, 0.1);
+    color: #a0aec0;
+    border: 1px solid rgba(113, 128, 150, 0.2);
+}
+
+/* Progress Bar (User Usage) */
+.usage-bar {
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    margin-top: auto;
+    overflow: hidden;
+}
+
+.usage-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+/* Action Footer */
+.workspace-footer {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--glass-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.workspace-action-btn {
+    background: var(--accent-soft);
+    color: var(--accent-primary);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.85em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.workspace-action-btn:hover {
+    background: var(--accent-primary);
+    color: white;
+}
+
+/* Plan Badge */
+.plan-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--glass-border);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.7em;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.plan-badge.enterprise {
+    border-color: #8b5cf6;
+    color: #a78bfa;
+    background: rgba(139, 92, 246, 0.1);
+}
+
+.plan-badge.pro {
+    border-color: #3b82f6;
+    color: #60a5fa;
+    background: rgba(59, 130, 246, 0.1);
+}
+
+/* ================================ */
+/* Company Details Modal Styles */
+/* ================================ */
+
+/* Tabs */
+.detail-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+}
+
+.detail-tab {
+    flex: 1;
+    padding: 14px 16px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.9em;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s;
+}
+
+.detail-tab:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.detail-tab.active {
+    color: var(--accent-primary);
+    border-bottom-color: var(--accent-primary);
+    background: rgba(0, 0, 0, 0.1);
+}
+
+/* Logo Preview in Header */
+.company-logo-preview {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5em;
+    overflow: hidden;
+}
+
+.company-logo-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Logo Upload Area */
+.logo-upload-area {
+    width: 140px;
+    height: 140px;
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    overflow: hidden;
+    background: var(--bg-tertiary);
+}
+
+.logo-upload-area:hover {
+    border-color: var(--accent-primary);
+    background: rgba(107, 138, 253, 0.05);
+}
+
+.logo-preview-placeholder {
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.logo-upload-area img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Activities Display */
+.activities-display {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.activity-tag {
+    background: var(--accent-soft);
+    color: var(--accent-primary);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8em;
+    font-weight: 500;
+}
