@@ -16,11 +16,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
 
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+
     <!-- External Libraries -->
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+    <!-- EmailJS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 
     <!-- Stylesheets -->
     <link rel="stylesheet" href="css/design-system.css">
@@ -65,10 +74,10 @@
     <main class="layout-main">
         <!-- Confidentiality Banner -->
         <div class="confidentiality-banner">
-            <span class="confidentiality-banner-icon">⚠️</span>
+            <span class="confidentiality-banner-icon">☁️</span>
             <span class="confidentiality-banner-text">
-                <strong>INFORMACIÓN CONFIDENCIAL</strong> - Los datos se almacenan localmente en su navegador
-                (IndexedDB)
+                <strong>INFORMACIÓN CONFIDENCIAL</strong> - Los datos se almacenan de forma segura en la nube
+                (Firebase Firestore)
             </span>
         </div>
 
@@ -1469,6 +1478,7 @@
     </div>
 
     <!-- Scripts -->
+    <script src="js/firebase-config.js"></script>
     <script src="js/db.js"></script>
     <script src="js/giros.js"></script>
     <script src="js/graph-service.js?v=2"></script>
@@ -1481,9 +1491,10 @@
     <script src="js/admin-companies.js"></script>
     <script src="js/soporte.js"></script>
     <script src="js/ai-service.js?v=2"></script>
+    <script src="js/email-service.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/utils.js"></script>
-    <script src="js/app.js?v=2"></script>
+    <script src="js/app.js?v=3"></script>
     <script src="js/ui.js"></script>
     <script>
         // Initialize on load

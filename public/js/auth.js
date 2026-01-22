@@ -1,10 +1,11 @@
 /**
  * PLD BDU v2 - Authentication Service
- * Multi-role authentication with Admin, User, and Visitor roles
+ * Firebase Authentication with role-based access control
  */
 
 const AuthService = {
     SESSION_KEY: 'pld_bdu_session',
+    currentUser: null,
 
     // Role definitions with permissions
     ROLES: {
@@ -12,7 +13,7 @@ const AuthService = {
             name: 'Super Admin BDUNITY',
             icon: '♾️',
             tabs: ['empresas', 'dashboard', 'config', 'upload', 'operations', 'monitoring', 'kyc', 'compliance', 'export', 'reports', 'audit', 'soporte', 'ai_config'],
-            permissions: ['read_all', 'write_all', 'admin', 'super_admin']
+            permissions: ['read_all', 'write_all', 'admin', 'super_admin', 'users']
         },
         admin: {
             name: 'Administrador',
@@ -35,45 +36,80 @@ const AuthService = {
     },
 
     /**
-     * Login with email, password, and role
+     * Initialize auth state listener
      */
-    async login(email, password, role) {
-        const user = await dbService.get('users', email);
+    init() {
+        firebaseAuth.onAuthStateChanged(async (user) => {
+            if (user) {
+                // Get user profile from Firestore
+                const profile = await this.getUserProfile(user.email);
+                if (profile) {
+                    this.currentUser = {
+                        email: user.email,
+                        uid: user.uid,
+                        role: profile.role,
+                        empresaId: profile.empresaId,
+                        emailVerified: user.emailVerified
+                    };
+                    sessionStorage.setItem(this.SESSION_KEY, JSON.stringify(this.currentUser));
+                }
+            } else {
+                this.currentUser = null;
+                sessionStorage.removeItem(this.SESSION_KEY);
+            }
+        });
+    },
 
-        if (!user) {
-            throw new Error('Usuario no encontrado');
-        }
+    /**
+     * Login with email and password
+     */
+    async login(email, password, expectedRole) {
+        try {
+            // Authenticate with Firebase
+            const result = await firebaseAuth.signInWithEmailAndPassword(email, password);
 
-        if (user.password !== await this.hashPassword(password)) {
-            throw new Error('Contraseña incorrecta');
-        }
+            // Get user profile from Firestore
+            const profile = await this.getUserProfile(email);
 
-        // Validate role access
-        if (role === 'admin') {
-            if (user.role !== 'admin' && user.role !== 'super_admin') {
+            if (!profile) {
+                await firebaseAuth.signOut();
+                throw new Error('Perfil de usuario no encontrado');
+            }
+
+            // Validate role access
+            if (expectedRole === 'admin' && profile.role !== 'admin' && profile.role !== 'super_admin') {
+                await firebaseAuth.signOut();
                 throw new Error('No tienes permisos de administrador');
             }
-        } else if (role === 'super_admin') {
-            if (user.role !== 'super_admin') {
+            if (expectedRole === 'super_admin' && profile.role !== 'super_admin') {
+                await firebaseAuth.signOut();
                 throw new Error('No tienes permisos de Super Admin');
             }
+
+            // Create session
+            this.currentUser = {
+                email: email,
+                uid: result.user.uid,
+                role: profile.role,
+                empresaId: profile.empresaId,
+                emailVerified: result.user.emailVerified
+            };
+
+            sessionStorage.setItem(this.SESSION_KEY, JSON.stringify(this.currentUser));
+            await this.logAudit('LOGIN', `Usuario ${email} inició sesión como ${profile.role}`);
+
+            return true;
+        } catch (error) {
+            console.error('Login error:', error);
+            if (error.code === 'auth/user-not-found') {
+                throw new Error('Usuario no encontrado');
+            } else if (error.code === 'auth/wrong-password') {
+                throw new Error('Contraseña incorrecta');
+            } else if (error.code === 'auth/invalid-credential') {
+                throw new Error('Credenciales inválidas');
+            }
+            throw error;
         }
-
-        // Create session
-        const session = {
-            email: user.email,
-            role: user.role, // Always store actual role
-            empresaId: user.empresaId, // Store empresaId if present
-            loginTime: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
-        };
-
-        sessionStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
-
-        // Log action
-        await this.logAudit('LOGIN', `Usuario ${email} inició sesión como ${role}`);
-
-        return true;
     },
 
     /**
@@ -84,26 +120,30 @@ const AuthService = {
         if (user) {
             await this.logAudit('LOGOUT', `Usuario ${user.email} cerró sesión`);
         }
+        await firebaseAuth.signOut();
         sessionStorage.removeItem(this.SESSION_KEY);
+        this.currentUser = null;
+    },
+
+    /**
+     * Get user profile from Firestore
+     */
+    async getUserProfile(email) {
+        const doc = await firestore.collection('users').doc(email).get();
+        return doc.exists ? doc.data() : null;
     },
 
     /**
      * Get current logged-in user
      */
     getCurrentUser() {
+        if (this.currentUser) return this.currentUser;
+
         const sessionData = sessionStorage.getItem(this.SESSION_KEY);
         if (!sessionData) return null;
 
         try {
-            const session = JSON.parse(sessionData);
-
-            // Check expiration
-            if (new Date(session.expiresAt) < new Date()) {
-                sessionStorage.removeItem(this.SESSION_KEY);
-                return null;
-            }
-
-            return session;
+            return JSON.parse(sessionData);
         } catch {
             return null;
         }
@@ -142,44 +182,55 @@ const AuthService = {
     },
 
     /**
-     * Check if admin user exists
+     * Check if super admin exists
      */
     async hasAdminUser() {
-        const users = await dbService.getAll('users');
-        return users.some(u => u.role === 'admin');
+        const snapshot = await firestore.collection('users')
+            .where('role', '==', 'super_admin')
+            .limit(1)
+            .get();
+        return !snapshot.empty;
     },
 
     /**
-     * Setup initial admin user
+     * Setup initial super admin user
      */
     async setupAdmin(email, password, securityQuestion, securityAnswer) {
-        const users = await dbService.getAll('users');
-        const hasSuperAdmin = users.some(u => u.role === 'super_admin');
-
+        const hasSuperAdmin = await this.hasAdminUser();
         if (hasSuperAdmin) {
             throw new Error('Ya existe un Super Admin configurado');
         }
 
-        const user = {
-            email: email,
-            password: await this.hashPassword(password),
-            role: 'super_admin',
-            securityQuestion: securityQuestion,
-            securityAnswer: await this.hashPassword(securityAnswer.toLowerCase()),
-            createdAt: new Date().toISOString()
-        };
+        try {
+            // Create Firebase Auth user
+            const result = await firebaseAuth.createUserWithEmailAndPassword(email, password);
 
-        await dbService.addItems('users', [user]);
-        await this.logAudit('SETUP_ADMIN', `Administrador inicial creado: ${email}`);
+            // Send verification email
+            await result.user.sendEmailVerification();
 
-        return true;
+            // Create user profile in Firestore
+            await firestore.collection('users').doc(email).set({
+                email: email,
+                role: 'super_admin',
+                securityQuestion: securityQuestion,
+                securityAnswer: await this.hashPassword(securityAnswer.toLowerCase()),
+                createdAt: new Date().toISOString(),
+                uid: result.user.uid
+            });
+
+            await this.logAudit('SETUP_ADMIN', `Super Admin inicial creado: ${email}`);
+            return true;
+        } catch (error) {
+            console.error('Setup admin error:', error);
+            if (error.code === 'auth/email-already-in-use') {
+                throw new Error('Este correo ya está registrado');
+            }
+            throw error;
+        }
     },
 
     /**
-     * Invite new user (admin only)
-     */
-    /**
-     * Invite new user (admin only)
+     * Invite new user (admin only) - Uses EmailJS to send invitation
      */
     async inviteUser(email, role, invitedBy, empresaId = null) {
         if (!this.hasPermission('users')) {
@@ -187,6 +238,12 @@ const AuthService = {
         }
 
         const currentUser = this.getCurrentUser();
+
+        // Super admin only can create other super_admins
+        if (role === 'super_admin' && currentUser.role !== 'super_admin') {
+            throw new Error('Solo un Super Admin puede crear otro Super Admin');
+        }
+
         const targetEmpresaId = empresaId || currentUser.empresaId;
 
         // If not super admin, can only invite to own company
@@ -194,70 +251,106 @@ const AuthService = {
             throw new Error('No puedes invitar usuarios a otra empresa');
         }
 
-        const existingUser = await dbService.get('users', email);
-        if (existingUser) {
+        // Check if user already exists
+        const existingProfile = await this.getUserProfile(email);
+        if (existingProfile) {
             throw new Error('El usuario ya existe');
         }
 
-        // Check plan limits (if applicable, implemented in higher layer or here)
-        // For now, we trust the caller (admin-companies.js or UI) to check limits
+        // Check if there's already a pending invite
+        const existingInvite = await firestore.collection('pending_invites')
+            .where('email', '==', email)
+            .get();
 
-        // Create user with temporary password
-        const tempPassword = this.generateTempPassword();
-        const user = {
-            email: email,
-            password: await this.hashPassword(tempPassword),
-            role: role,
-            invitedBy: invitedBy,
-            empresaId: targetEmpresaId, // Critical fix: save empresaId
-            mustChangePassword: true,
-            createdAt: new Date().toISOString()
-        };
+        if (!existingInvite.empty) {
+            throw new Error('Ya existe una invitación pendiente para este correo');
+        }
 
-        await dbService.addItems('users', [user]);
-        await this.logAudit('INVITE_USER', `Usuario ${email} invitado como ${role} por ${invitedBy} (Empresa: ${targetEmpresaId})`);
+        try {
+            // Generate invite token
+            const inviteToken = this.generateInviteToken();
 
-        return tempPassword;
+            // Save pending invite to Firestore
+            await firestore.collection('pending_invites').add({
+                email: email,
+                role: role,
+                empresaId: targetEmpresaId,
+                invitedBy: invitedBy,
+                token: inviteToken,
+                createdAt: new Date().toISOString(),
+                status: 'pending'
+            });
+
+            // Try to send email via EmailJS
+            let emailSent = false;
+            if (typeof EmailService !== 'undefined' && EmailService.isConfigured()) {
+                try {
+                    await EmailService.sendInvitation(email, role, invitedBy);
+                    emailSent = true;
+                } catch (emailError) {
+                    console.warn('Could not send email:', emailError);
+                }
+            }
+
+            await this.logAudit('INVITE_USER', `Usuario ${email} invitado como ${role} por ${invitedBy} (Empresa: ${targetEmpresaId})`);
+
+            // Return info including registration link
+            const registerLink = `${window.location.origin}/register.html?token=${inviteToken}&email=${encodeURIComponent(email)}`;
+
+            return {
+                success: true,
+                emailSent,
+                registerLink,
+                message: emailSent
+                    ? 'Invitación enviada por correo'
+                    : 'Invitación creada. Comparte el link de registro manualmente.'
+            };
+        } catch (error) {
+            console.error('Invite user error:', error);
+            throw error;
+        }
     },
 
     /**
-     * Get security question for password recovery
+     * Generate invite token
+     */
+    generateInviteToken() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+        let token = '';
+        for (let i = 0; i < 32; i++) {
+            token += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return token;
+    },
+
+
+    /**
+     * Send password reset email
+     */
+    async sendPasswordReset(email) {
+        try {
+            await firebaseAuth.sendPasswordResetEmail(email);
+            await this.logAudit('PASSWORD_RESET_REQUESTED', `Solicitud de reseteo para ${email}`);
+            return true;
+        } catch (error) {
+            console.error('Password reset error:', error);
+            if (error.code === 'auth/user-not-found') {
+                throw new Error('No existe una cuenta con este correo');
+            }
+            throw error;
+        }
+    },
+
+    /**
+     * Get security question for password recovery (legacy support)
      */
     async getSecurityQuestion(email) {
-        const user = await dbService.get('users', email);
-        if (!user || !user.securityQuestion) {
-            return null;
-        }
-        return user.securityQuestion;
+        const profile = await this.getUserProfile(email);
+        return profile?.securityQuestion || null;
     },
 
     /**
-     * Reset password with security answer
-     */
-    async resetPassword(email, securityAnswer, newPassword) {
-        const user = await dbService.get('users', email);
-        if (!user) {
-            throw new Error('Usuario no encontrado');
-        }
-
-        if (user.securityAnswer !== this.hashPassword(securityAnswer.toLowerCase())) {
-            throw new Error('Respuesta de seguridad incorrecta');
-        }
-
-        user.password = this.hashPassword(newPassword);
-        user.mustChangePassword = false;
-        await dbService.addItems('users', [user]);
-
-        await this.logAudit('RESET_PASSWORD', `Contraseña restablecida para ${email}`);
-
-        return true;
-    },
-
-    /**
-     * Simple hash function (for demo - use bcrypt in production)
-     */
-    /**
-     * Hash password using SHA-256 (Web Crypto API)
+     * Hash password using SHA-256 (for security questions)
      */
     async hashPassword(password) {
         const msgBuffer = new TextEncoder().encode(password);
@@ -273,7 +366,7 @@ const AuthService = {
     generateTempPassword() {
         const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
         let password = '';
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0; i < 12; i++) {
             password += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         return password;
@@ -285,7 +378,7 @@ const AuthService = {
     async logAudit(action, details) {
         const user = this.getCurrentUser();
         const log = {
-            id: Date.now(),
+            id: Date.now().toString(),
             fecha: new Date().toISOString(),
             user: user?.email || 'Sistema',
             action: action,
@@ -293,9 +386,14 @@ const AuthService = {
         };
 
         try {
-            await dbService.addItems('audit_logs', [log]);
+            await firestore.collection('audit_logs').doc(log.id).set(log);
         } catch (e) {
             console.error('Error logging audit:', e);
         }
     }
 };
+
+// Initialize on load
+if (typeof firebaseAuth !== 'undefined') {
+    AuthService.init();
+}

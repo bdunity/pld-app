@@ -132,7 +132,9 @@ function setupUIForRole(user) {
         reports: { icon: '📋', label: 'Banco de Reportes' },
         audit: { icon: '🛡️', label: 'Bitácora' },
         soporte: { icon: '🎫', label: 'Soporte' },
-        dashboard: { icon: '📊', label: 'Dashboard' }
+        dashboard: { icon: '📊', label: 'Dashboard' },
+        empresas: { icon: '🏢', label: 'Espacios de Trabajo' },
+        ai_config: { icon: '🤖', label: 'Configuración IA' }
     };
 
     const sidebarMenu = document.getElementById('sidebarMenu');
@@ -198,7 +200,9 @@ function switchTab(tabId) {
         reports: ['Banco de Reportes', 'Historial de reportes generados'],
         audit: ['Bitácora', 'Registro de acciones'],
         soporte: ['Soporte', 'Centro de ayuda y tickets'],
-        dashboard: ['Dashboard', 'Resumen general']
+        dashboard: ['Dashboard', 'Resumen general'],
+        empresas: ['Espacios de Trabajo', 'Gestiona empresas clientes'],
+        ai_config: ['Configuración IA', 'Ajustes de inteligencia artificial']
     };
 
     if (titles[tabId]) {

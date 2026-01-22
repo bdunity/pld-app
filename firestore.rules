@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // TEMPORARY: Allow all reads and writes for initial setup
+    // TODO: Add proper authentication rules before production
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

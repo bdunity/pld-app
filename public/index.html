@@ -17,6 +17,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
 
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+
     <!-- Stylesheets -->
     <link rel="stylesheet" href="css/design-system.css">
     <link rel="stylesheet" href="css/components.css">
@@ -70,28 +75,16 @@
 
             <!-- Password Recovery Card -->
             <div class="login-card hidden" id="recoveryCard">
-                <h1 class="login-title">Recuperar Acceso</h1>
-                <p class="login-subtitle" id="recoveryQuestion">Ingresa tu correo para buscar tu pregunta de seguridad.
-                </p>
+                <h1 class="login-title">Recuperar Contraseña</h1>
+                <p class="login-subtitle">Te enviaremos un correo para restablecer tu contraseña.</p>
 
-                <form class="login-form" id="recoveryForm">
+                <form class="login-form" id="recoveryForm" onsubmit="return handlePasswordReset(event)">
                     <div class="form-group">
                         <input type="email" id="recoveryEmail" class="form-input" placeholder="Correo Registrado"
                             required>
                     </div>
-                    <div class="form-group hidden" id="securityAnswerGroup">
-                        <input type="text" id="securityAnswer" class="form-input" placeholder="Respuesta de Seguridad">
-                    </div>
-                    <div class="form-group hidden" id="newPasswordGroup">
-                        <input type="password" id="newPassword" class="form-input" placeholder="Nueva Contraseña">
-                    </div>
-                    <button type="button" class="btn btn-primary w-full" id="btnFindUser"
-                        onclick="findSecurityQuestion()">
-                        Buscar Usuario
-                    </button>
-                    <button type="button" class="btn btn-primary w-full hidden" id="btnResetPassword"
-                        onclick="resetPassword()">
-                        Restablecer Contraseña
+                    <button type="submit" class="btn btn-primary w-full">
+                        Enviar Correo de Recuperación
                     </button>
                 </form>
 
@@ -152,6 +145,7 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- Scripts -->
+    <script src="js/firebase-config.js"></script>
     <script src="js/db.js"></script>
     <script src="js/auth.js"></script>
     <script>
@@ -232,47 +226,29 @@
             return false;
         }
 
-        // Password Recovery
-        async function findSecurityQuestion() {
+        // Password Recovery with Firebase
+        async function handlePasswordReset(event) {
+            event.preventDefault();
+
             const email = document.getElementById('recoveryEmail').value;
             if (!email) {
                 showToast('Ingresa tu correo electrónico', 'warning');
-                return;
+                return false;
             }
+
+            showLoading('Enviando correo de recuperación...');
 
             try {
-                const question = await AuthService.getSecurityQuestion(email);
-                if (question) {
-                    document.getElementById('recoveryQuestion').textContent = question;
-                    document.getElementById('securityAnswerGroup').classList.remove('hidden');
-                    document.getElementById('newPasswordGroup').classList.remove('hidden');
-                    document.getElementById('btnFindUser').classList.add('hidden');
-                    document.getElementById('btnResetPassword').classList.remove('hidden');
-                } else {
-                    showToast('Usuario no encontrado', 'danger');
-                }
-            } catch (error) {
-                showToast('Error: ' + error.message, 'danger');
-            }
-        }
-
-        async function resetPassword() {
-            const email = document.getElementById('recoveryEmail').value;
-            const answer = document.getElementById('securityAnswer').value;
-            const newPassword = document.getElementById('newPassword').value;
-
-            if (!answer || !newPassword) {
-                showToast('Completa todos los campos', 'warning');
-                return;
-            }
-
-            try {
-                await AuthService.resetPassword(email, answer, newPassword);
-                showToast('Contraseña restablecida exitosamente', 'success');
+                await AuthService.sendPasswordReset(email);
+                showToast('✅ Correo enviado! Revisa tu bandeja de entrada', 'success');
                 showLoginView();
             } catch (error) {
                 showToast('Error: ' + error.message, 'danger');
+            } finally {
+                hideLoading();
             }
+
+            return false;
         }
 
         // UI Helpers

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro - PLD BDU</title>
+    <meta name="description" content="Completa tu registro en PLD BDU">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="https://thumbs2.imgbox.com/a5/db/28bD5e7C_t.jpg">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/design-system.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/layouts.css">
+</head>
+
+<body>
+    <div class="login-page" id="registerPage">
+        <div class="login-container animate-fadeIn">
+            <!-- Register Card -->
+            <div class="login-card" id="registerCard">
+                <div class="login-logo">
+                    <img src="https://thumbs2.imgbox.com/a5/db/28bD5e7C_t.jpg" alt="PLD BDU Logo"
+                        style="width: 80px; height: 80px; border-radius: 16px;">
+                </div>
+
+                <h1 class="login-title">Completa tu Registro</h1>
+                <p class="login-subtitle" id="inviteMessage">Crea tu cuenta para acceder a PLD BDU</p>
+
+                <form class="login-form" id="registerForm" onsubmit="return handleRegister(event)">
+                    <div class="form-group">
+                        <input type="email" id="registerEmail" class="form-input" placeholder="Correo Electrónico"
+                            required readonly>
+                    </div>
+                    <div class="form-group">
+                        <input type="password" id="registerPassword" class="form-input" placeholder="Crear Contraseña"
+                            required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <input type="password" id="registerPasswordConfirm" class="form-input"
+                            placeholder="Confirmar Contraseña" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg w-full">
+                        Crear Cuenta
+                    </button>
+                </form>
+
+                <div class="login-divider">o</div>
+
+                <a href="index.html" class="btn btn-ghost w-full">
+                    Ya tengo cuenta - Iniciar Sesión
+                </a>
+            </div>
+
+            <!-- Invalid Token Card -->
+            <div class="login-card hidden" id="invalidCard">
+                <div class="login-logo">
+                    <span style="font-size: 48px;">❌</span>
+                </div>
+
+                <h1 class="login-title">Invitación Inválida</h1>
+                <p class="login-subtitle">Este enlace de invitación no es válido o ha expirado.</p>
+
+                <a href="index.html" class="btn btn-primary w-full">
+                    Ir al Login
+                </a>
+            </div>
+
+            <!-- Success Card -->
+            <div class="login-card hidden" id="successCard">
+                <div class="login-logo">
+                    <span style="font-size: 48px;">✅</span>
+                </div>
+
+                <h1 class="login-title">¡Cuenta Creada!</h1>
+                <p class="login-subtitle">Tu cuenta ha sido creada exitosamente. Ya puedes iniciar sesión.</p>
+
+                <a href="index.html" class="btn btn-primary w-full">
+                    Iniciar Sesión
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p class="loading-text" id="loadingText">Cargando...</p>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Scripts -->
+    <script src="js/firebase-config.js"></script>
+    <script src="js/db.js"></script>
+    <script>
+        let inviteData = null;
+
+        // Get URL parameters
+        function getUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                token: params.get('token'),
+                email: params.get('email')
+            };
+        }
+
+        // Initialize page
+        async function initRegisterPage() {
+            const params = getUrlParams();
+
+            if (!params.token || !params.email) {
+                showInvalidInvite();
+                return;
+            }
+
+            // Check if invitation exists in Firestore
+            try {
+                await dbService.init();
+
+                const invites = await firestore.collection('pending_invites')
+                    .where('token', '==', params.token)
+                    .where('email', '==', params.email)
+                    .get();
+
+                if (invites.empty) {
+                    showInvalidInvite();
+                    return;
+                }
+
+                inviteData = invites.docs[0].data();
+                inviteData.docId = invites.docs[0].id;
+
+                // Check expiration (7 days)
+                const createdAt = new Date(inviteData.createdAt);
+                const now = new Date();
+                const daysDiff = (now - createdAt) / (1000 * 60 * 60 * 24);
+
+                if (daysDiff > 7) {
+                    showInvalidInvite();
+                    return;
+                }
+
+                // Populate email field
+                document.getElementById('registerEmail').value = params.email;
+
+                // Update message
+                const roleNames = {
+                    'super_admin': 'Super Administrador',
+                    'admin': 'Administrador',
+                    'user': 'Usuario',
+                    'visitor': 'Visitante'
+                };
+                document.getElementById('inviteMessage').textContent =
+                    `Fuiste invitado como ${roleNames[inviteData.role] || inviteData.role}`;
+
+            } catch (error) {
+                console.error('Error checking invite:', error);
+                showInvalidInvite();
+            }
+        }
+
+        function showInvalidInvite() {
+            document.getElementById('registerCard').classList.add('hidden');
+            document.getElementById('invalidCard').classList.remove('hidden');
+        }
+
+        // Handle registration
+        async function handleRegister(event) {
+            event.preventDefault();
+
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('registerPasswordConfirm').value;
+
+            if (password !== confirmPassword) {
+                showToast('Las contraseñas no coinciden', 'danger');
+                return false;
+            }
+
+            if (password.length < 6) {
+                showToast('La contraseña debe tener al menos 6 caracteres', 'warning');
+                return false;
+            }
+
+            showLoading('Creando tu cuenta...');
+
+            try {
+                // Create Firebase Auth user
+                const result = await firebaseAuth.createUserWithEmailAndPassword(email, password);
+
+                // Create user profile in Firestore
+                await firestore.collection('users').doc(email).set({
+                    email: email,
+                    role: inviteData.role,
+                    empresaId: inviteData.empresaId,
+                    invitedBy: inviteData.invitedBy,
+                    createdAt: new Date().toISOString(),
+                    uid: result.user.uid
+                });
+
+                // Delete the pending invite
+                await firestore.collection('pending_invites').doc(inviteData.docId).delete();
+
+                // Sign out (they'll log in from login page)
+                await firebaseAuth.signOut();
+
+                // Show success
+                document.getElementById('registerCard').classList.add('hidden');
+                document.getElementById('successCard').classList.remove('hidden');
+
+            } catch (error) {
+                console.error('Registration error:', error);
+                if (error.code === 'auth/email-already-in-use') {
+                    showToast('Este correo ya está registrado', 'danger');
+                } else {
+                    showToast('Error: ' + error.message, 'danger');
+                }
+            } finally {
+                hideLoading();
+            }
+
+            return false;
+        }
+
+        // UI Helpers
+        function showLoading(text = 'Cargando...') {
+            document.getElementById('loadingText').textContent = text;
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `<span>${message}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', initRegisterPage);
+    </script>
+</body>
+
+</html>
