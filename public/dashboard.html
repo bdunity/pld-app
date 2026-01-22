@@ -967,31 +967,6 @@
                             <input type="text" id="searchFAQ" class="form-input" placeholder="🔍 Buscar en FAQs..."
                                 onkeyup="searchFAQ()">
                         </div>
-                        <div id="faqContainer" style="margin-top: 16px;">
-                            <!-- FAQs rendered by JS -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tab: Empresas (Super Admin Only) -->
-                <div id="tab-empresas" class="tab-content">
-                    <div class="section">
-                        <div class="section-header">
-                            <div>
-                                <h3 class="section-title">Espacios de Trabajo</h3>
-                                <p class="text-muted" style="margin-top: 4px;">Gestiona tus clientes como tableros
-                                    independientes.</p>
-                            </div>
-                            <button class="btn btn-primary"
-                                onclick="document.getElementById('modalNewCompany').classList.add('active')">
-                                ➕ Nuevo Espacio
-                            </button>
-                        </div>
-
-                        <!-- Workspaces Grid (Replaces Table) -->
-                        <div id="companiesGrid" class="workspaces-grid">
-                            <!-- Cards loaded by JS -->
-                        </div>
                     </div>
                 </div>
 
@@ -1053,12 +1028,34 @@
                         <h3 class="section-title">🎛️ Gestión de Tickets (Admin)</h3>
                         <div>
                             <span id="ticketStats" class="badge badge-info">0 abiertos</span>
-                            <button class="btn btn-secondary btn-sm" onclick="loadAllTickets()">🔄
-                                Actualizar</button>
+                            <button class="btn btn-secondary btn-sm" onclick="loadAllTickets()">🔄 Actualizar</button>
                         </div>
                     </div>
                     <div id="adminTicketsContainer" class="card">
                         <p class="text-muted text-center">Cargando tickets...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================================ -->
+            <!-- TAB: Empresas (Super Admin Only) -->
+            <!-- ================================ -->
+            <div id="tab-empresas" class="tab-content">
+                <div class="section">
+                    <div class="section-header">
+                        <div>
+                            <h3 class="section-title">Espacios de Trabajo</h3>
+                            <p class="text-muted" style="margin-top: 4px;">Gestiona empresas clientes</p>
+                        </div>
+                        <button class="btn btn-primary"
+                            onclick="document.getElementById('modalNewCompany').classList.add('active')">
+                            ➕ Nuevo Espacio
+                        </button>
+                    </div>
+
+                    <!-- Workspaces Grid -->
+                    <div id="companiesGrid" class="workspaces-grid">
+                        <!-- Cards loaded by JS -->
                     </div>
                 </div>
             </div>

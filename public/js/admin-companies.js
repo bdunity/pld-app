@@ -102,46 +102,51 @@ const CompaniesService = {
     async createCompany(data) {
         if (!data.razonSocial || !data.rfc) {
             alert('Razón Social y RFC son obligatorios');
-            return;
+            return false;
         }
 
-        const id = 'emp_' + Date.now();
-        const planKey = data.plan || 'basic';
-        const plan = this.PLANS[planKey] || this.PLANS.basic;
-
-        const newCompany = {
-            id: id,
-            razonSocial: data.razonSocial,
-            nombreComercial: data.nombreComercial,
-            rfc: data.rfc,
-            sector: 'Múltiple',
-            actividades: data.actividades || [],
-            plan: planKey,
-            maxUsers: plan.maxUsers, // Inherit from plan default
-            activo: true,
-            fechaRegistro: new Date().toISOString()
-        };
-
         try {
-            await dbService.addItems('empresas', [newCompany]);
-
-            // Create default admin user for this company
-            if (data.adminEmail) {
-                const adminUser = {
-                    email: data.adminEmail,
-                    password: await AuthService.hashPassword('admin123'), // Default password
-                    role: 'admin',
-                    empresaId: id,
-                    createdAt: new Date().toISOString()
-                };
-                await dbService.addItems('users', [adminUser]);
+            // Ensure dbService is initialized
+            if (!dbService.initialized) {
+                await dbService.init();
             }
 
-            // showToast('Empresa creada exitosamente', 'success'); // Caller handles UI 
+            const id = 'emp_' + Date.now();
+            const planKey = data.plan || 'basic';
+            const plan = this.PLANS[planKey] || this.PLANS.basic;
+
+            const newCompany = {
+                id: id,
+                razonSocial: data.razonSocial,
+                nombreComercial: data.nombreComercial || data.razonSocial,
+                rfc: data.rfc.toUpperCase(),
+                sector: 'Múltiple',
+                actividades: data.actividades || [],
+                plan: planKey,
+                maxUsers: plan.maxUsers,
+                activo: true,
+                fechaRegistro: new Date().toISOString()
+            };
+
+            await dbService.addItems('empresas', [newCompany]);
+
+            // Create admin user profile (they will be invited to set password later)
+            if (data.adminEmail) {
+                const adminProfile = {
+                    email: data.adminEmail.toLowerCase(),
+                    role: 'admin',
+                    empresaId: id,
+                    createdAt: new Date().toISOString(),
+                    status: 'pending_invite' // Will need to complete registration
+                };
+                await dbService.addItems('users', [adminProfile]);
+            }
+
+            alert('✅ Empresa creada exitosamente');
             return true;
         } catch (error) {
             console.error('Error creating company:', error);
-            // showToast('Error al crear empresa', 'danger');
+            alert('❌ Error al crear empresa: ' + error.message);
             return false;
         }
     },
