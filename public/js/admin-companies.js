@@ -117,11 +117,11 @@ const CompaniesService = {
 
             const newCompany = {
                 id: id,
-                razonSocial: data.razonSocial,
-                nombreComercial: data.nombreComercial || data.razonSocial,
-                rfc: data.rfc.toUpperCase(),
+                razonSocial: String(data.razonSocial || ''),
+                nombreComercial: String(data.nombreComercial || data.razonSocial || ''),
+                rfc: String(data.rfc || '').toUpperCase(),
                 sector: 'Múltiple',
-                actividades: data.actividades || [],
+                actividades: Array.isArray(data.actividades) ? data.actividades : [],
                 plan: planKey,
                 maxUsers: plan.maxUsers,
                 activo: true,

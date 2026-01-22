@@ -7,7 +7,7 @@ const dbService = {
     db: null,
     initialized: false,
 
-    async init() {
+    init() {
         if (this.initialized) return this.db;
 
         // Wait for Firebase to be available
@@ -18,8 +18,71 @@ const dbService = {
 
         this.db = firestore;
         this.initialized = true;
-        console.log('✅ Firestore DB Connected');
+        console.log('✅ Firestore DB Connected (Multi-Tenant Mode)');
         return this.db;
+    },
+
+    /**
+     * Get current tenant context
+     * Returns { empresaId, isSuperAdmin }
+     */
+    getTenantContext() {
+        if (typeof AuthService !== 'undefined') {
+            const user = AuthService.getCurrentUser();
+            if (user) {
+                return {
+                    empresaId: user.empresaId,
+                    isSuperAdmin: user.role === 'super_admin'
+                };
+            }
+        }
+
+        // Fallback to session storage if AuthService not fully loaded
+        try {
+            const session = sessionStorage.getItem('pld_bdu_session');
+            if (session) {
+                const user = JSON.parse(session);
+                return {
+                    empresaId: user.empresaId,
+                    isSuperAdmin: user.role === 'super_admin'
+                };
+            }
+        } catch (e) {
+            console.warn('Error reading session for tenant context', e);
+        }
+
+        return { empresaId: null, isSuperAdmin: false };
+    },
+
+    /**
+     * Helper to apply tenant filter to a query reference
+     */
+    applyTenantFilter(queryRef, collectionName) {
+        // Collections that are global (shared across all tenants)
+        const GLOBAL_COLLECTIONS = ['users', 'empresas', 'config', 'audit_logs']; // 'users' is special, handled separately usually
+
+        if (GLOBAL_COLLECTIONS.includes(collectionName)) {
+            return queryRef;
+        }
+
+        const { empresaId, isSuperAdmin } = this.getTenantContext();
+
+        // If super admin, they can see all (or we could implement a "view as" mode later)
+        // For now, let's assume Super Admin sees EVERYTHING from the raw DB view, 
+        // but UI might filter. Or, safer: Super Admin also needs explicit context to see data.
+        // Let's stick to the plan: "unless Super Admin".
+        if (isSuperAdmin) {
+            return queryRef;
+        }
+
+        if (empresaId) {
+            return queryRef.where('empresaId', '==', empresaId);
+        }
+
+        // If no user and not global collection, maybe return empty or throw?
+        // For safety, if no context, we shouldn't show sensitive data.
+        console.warn(`Querying ${collectionName} without tenant context!`);
+        return queryRef; // Fallback for now to avoid breaking login flow if called early
     },
 
     /**
@@ -45,11 +108,21 @@ const dbService = {
                 docId = item.id?.toString() || Date.now().toString();
             }
 
+            const { empresaId, isSuperAdmin } = this.getTenantContext();
+
             const docRef = this.db.collection(collectionName).doc(docId);
-            batch.set(docRef, {
+            const dataToSave = {
                 ...item,
                 updatedAt: new Date().toISOString()
-            }, { merge: true });
+            };
+
+            // Enforce empresaId on save for tenant-specific collections
+            const GLOBAL_COLLECTIONS = ['users', 'empresas', 'config', 'audit_logs'];
+            if (!GLOBAL_COLLECTIONS.includes(collectionName) && !dataToSave.empresaId && empresaId) {
+                dataToSave.empresaId = empresaId;
+            }
+
+            batch.set(docRef, dataToSave, { merge: true });
         }
 
         await batch.commit();
@@ -59,7 +132,10 @@ const dbService = {
      * Get all documents from a collection
      */
     async getAll(collectionName) {
-        const snapshot = await this.db.collection(collectionName).get();
+        let query = this.db.collection(collectionName);
+        query = this.applyTenantFilter(query, collectionName);
+
+        const snapshot = await query.get();
         return snapshot.docs.map(doc => ({ ...doc.data(), _docId: doc.id }));
     },
 
@@ -85,9 +161,10 @@ const dbService = {
      * Get documents by a field value
      */
     async getByIndex(collectionName, fieldName, value) {
-        const snapshot = await this.db.collection(collectionName)
-            .where(fieldName, '==', value)
-            .get();
+        let query = this.db.collection(collectionName).where(fieldName, '==', value);
+        query = this.applyTenantFilter(query, collectionName);
+
+        const snapshot = await query.get();
         return snapshot.docs.map(doc => ({ ...doc.data(), _docId: doc.id }));
     },
 
@@ -95,10 +172,13 @@ const dbService = {
      * Get operations by period range
      */
     async getByPeriodRange(startId, endId) {
-        const snapshot = await this.db.collection('operations')
+        let query = this.db.collection('operations')
             .where('periodoId', '>=', startId)
-            .where('periodoId', '<=', endId)
-            .get();
+            .where('periodoId', '<=', endId);
+
+        query = this.applyTenantFilter(query, 'operations');
+
+        const snapshot = await query.get();
         return snapshot.docs.map(doc => ({ ...doc.data(), _docId: doc.id }));
     },
 
@@ -116,7 +196,10 @@ const dbService = {
      * Count documents in a collection
      */
     async count(collectionName) {
-        const snapshot = await this.db.collection(collectionName).get();
+        let query = this.db.collection(collectionName);
+        query = this.applyTenantFilter(query, collectionName);
+
+        const snapshot = await query.get();
         return snapshot.size;
     }
 };

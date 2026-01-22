@@ -266,6 +266,23 @@ const AuthService = {
             throw new Error('Ya existe una invitación pendiente para este correo');
         }
 
+        // Check Plan Quotas (SaaS)
+        if (typeof FeatureService !== 'undefined' && currentUser.role !== 'super_admin') {
+            // Count current users + pending invites
+            const usersCount = await dbService.count('users'); // Now filtered by tenant
+            const pendingCount = await firestore.collection('pending_invites')
+                .where('empresaId', '==', targetEmpresaId)
+                .where('status', '==', 'pending')
+                .get()
+                .then(snap => snap.size);
+
+            const totalUsers = usersCount + pendingCount;
+
+            if (!FeatureService.checkQuota('maxUsers', totalUsers)) {
+                throw new Error('Haz alcanzado el límite de usuarios de tu plan actual. Actualiza tu plan para invitar más usuarios.');
+            }
+        }
+
         try {
             // Generate invite token
             const inviteToken = this.generateInviteToken();

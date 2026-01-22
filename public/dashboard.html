@@ -58,8 +58,11 @@
 
         <div class="sidebar-footer">
             <div class="sidebar-user">
-                <div class="sidebar-user-avatar" id="userAvatar">A</div>
-                <div class="sidebar-user-info">
+                <div class="sidebar-user-avatar" id="userAvatar" onclick="openProfileModal()" style="cursor: pointer;"
+                    title="Ver mi perfil">
+                    <span id="userAvatarContent">A</span>
+                </div>
+                <div class="sidebar-user-info" onclick="openProfileModal()" style="cursor: pointer;">
                     <div class="sidebar-user-name" id="userName">Usuario</div>
                     <div class="sidebar-user-role" id="userRole">Rol</div>
                 </div>
@@ -151,6 +154,47 @@
                     <div class="section-header">
                         <h3 class="section-title">⚙️ Parámetros del Sistema</h3>
                     </div>
+
+                    <!-- Subscription Card (SaaS) -->
+                    <div class="card" id="subscriptionCard"
+                        style="margin-bottom: 24px; border: 1px solid var(--accent-primary);">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <h4 style="color: var(--accent-primary); margin-bottom: 8px;">💳 Tu Suscripción</h4>
+                                <div id="currentPlanName"
+                                    style="font-size: 1.5em; font-weight: 700; margin-bottom: 4px;">Cargando...</div>
+                                <div id="currentPlanStatus" class="badge badge-success">Activo</div>
+                            </div>
+                            <button class="btn btn-primary" onclick="BillingService.showUpgradeModal()">⬆️ Mejorar
+                                Plan</button>
+                        </div>
+
+                        <div style="margin-top: 16px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                            <div>
+                                <small class="text-muted">Usuarios</small>
+                                <div class="progress-bar-container" style="margin-top: 4px;">
+                                    <div class="progress-bar" id="usersProgress" style="width: 0%"></div>
+                                </div>
+                                <div
+                                    style="display: flex; justify-content: space-between; font-size: 0.8em; margin-top: 4px;">
+                                    <span id="usersUsed">0</span>
+                                    <span id="usersMax">/ 0</span>
+                                </div>
+                            </div>
+                            <div>
+                                <small class="text-muted">Operaciones (Mes)</small>
+                                <div class="progress-bar-container" style="margin-top: 4px;">
+                                    <div class="progress-bar" id="opsProgress" style="width: 0%"></div>
+                                </div>
+                                <div
+                                    style="display: flex; justify-content: space-between; font-size: 0.8em; margin-top: 4px;">
+                                    <span id="opsUsed">0</span>
+                                    <span id="opsMax">/ 0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="card">
                         <!-- Datos del Sujeto Obligado -->
                         <h4 style="margin-bottom: 16px; color: var(--text-primary);">🏢 Datos del Sujeto Obligado</h4>
@@ -1093,6 +1137,62 @@
         </div>
     </main>
 
+    <!-- User Profile Modal -->
+    <div class="modal-overlay" id="profileModal">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title">👤 Mi Perfil</h3>
+                <button class="modal-close" onclick="closeProfileModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Avatar Section -->
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <div id="profileAvatarPreview"
+                        style="width: 100px; height: 100px; border-radius: 50%; margin: 0 auto 16px; overflow: hidden; background: var(--surface-secondary); display: flex; align-items: center; justify-content: center; font-size: 2.5em; cursor: pointer; border: 3px solid var(--accent-primary);"
+                        onclick="document.getElementById('profileAvatarInput').click()">
+                        <span id="profileAvatarImage">👤</span>
+                    </div>
+                    <input type="file" id="profileAvatarInput" accept="image/*" style="display: none;"
+                        onchange="handleProfileAvatarUpload(this)">
+                    <div style="display: flex; gap: 8px; justify-content: center;">
+                        <button class="btn btn-ghost btn-sm"
+                            onclick="document.getElementById('profileAvatarInput').click()">📷 Cambiar Foto</button>
+                        <button class="btn btn-ghost btn-sm" onclick="removeProfileAvatar()">🗑️ Quitar</button>
+                    </div>
+                </div>
+
+                <!-- Profile Form -->
+                <div class="form-group">
+                    <label class="form-label">Correo Electrónico</label>
+                    <input type="email" id="profileEmail" class="form-input" readonly style="opacity: 0.7;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nombre Completo</label>
+                    <input type="text" id="profileDisplayName" class="form-input" placeholder="Tu nombre completo">
+                </div>
+                <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+                    <div class="form-group">
+                        <label class="form-label">Teléfono</label>
+                        <input type="tel" id="profilePhone" class="form-input" placeholder="+52 555 123 4567">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Cargo</label>
+                        <input type="text" id="profileJobTitle" class="form-input"
+                            placeholder="Ej: Oficial de Cumplimiento">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Departamento</label>
+                    <input type="text" id="profileDepartment" class="form-input" placeholder="Ej: Cumplimiento PLD">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeProfileModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveProfile()">💾 Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Invite User Modal -->
     <div class="modal-overlay" id="inviteModal">
         <div class="modal">
@@ -1371,6 +1471,8 @@
 
     <script>
         function handleCreateCompany() {
+            console.log('handleCreateCompany called');
+
             const checkboxes = document.querySelectorAll('input[name="vulnerableAct"]:checked');
             const activities = Array.from(checkboxes).map(cb => cb.value);
 
@@ -1378,15 +1480,24 @@
                 razonSocial: document.getElementById('newCompName').value,
                 rfc: document.getElementById('newCompRFC').value,
                 adminEmail: document.getElementById('newCompAdmin').value,
-                plan: document.getElementById('newCompPlan').value, // Capture Plan
+                plan: document.getElementById('newCompPlan').value,
                 actividades: activities
             };
-            CompaniesService.createCompany(data).then(success => {
-                if (success) {
-                    document.getElementById('modalNewCompany').classList.remove('active');
-                    CompaniesService.loadCompanies(); // Refresh list
-                }
-            });
+
+            console.log('Data to create:', data);
+
+            CompaniesService.createCompany(data)
+                .then(success => {
+                    console.log('Create company result:', success);
+                    if (success) {
+                        document.getElementById('modalNewCompany').classList.remove('active');
+                        CompaniesService.loadCompanies();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error in handleCreateCompany:', error);
+                    alert('Error: ' + error.message);
+                });
         }
 
         function switchDetailTab(tab) {
@@ -1400,6 +1511,137 @@
             document.getElementById('detail-users').style.display = tab === 'users' ? 'block' : 'none';
             document.getElementById('detail-history').style.display = tab === 'history' ? 'block' : 'none';
         }
+
+        // ========== User Profile Functions ==========
+        let currentUserProfile = null;
+
+        async function openProfileModal() {
+            const user = AuthService.getCurrentUser();
+            if (!user) return;
+
+            try {
+                currentUserProfile = await UserProfileService.getProfile(user.email);
+
+                // Populate form
+                document.getElementById('profileEmail').value = user.email;
+                document.getElementById('profileDisplayName').value = currentUserProfile?.displayName || '';
+                document.getElementById('profilePhone').value = currentUserProfile?.phone || '';
+                document.getElementById('profileJobTitle').value = currentUserProfile?.jobTitle || '';
+                document.getElementById('profileDepartment').value = currentUserProfile?.department || '';
+
+                // Show avatar
+                updateProfileAvatarPreview(currentUserProfile);
+
+                // Open modal
+                document.getElementById('profileModal').classList.add('active');
+            } catch (error) {
+                console.error('Error loading profile:', error);
+                alert('Error cargando perfil');
+            }
+        }
+
+        function closeProfileModal() {
+            document.getElementById('profileModal').classList.remove('active');
+        }
+
+        function updateProfileAvatarPreview(profile) {
+            const preview = document.getElementById('profileAvatarImage');
+            if (profile?.avatar && profile.avatar !== UserProfileService.DEFAULT_AVATAR) {
+                preview.innerHTML = `<img src="${profile.avatar}" style="width: 100%; height: 100%; object-fit: cover;">`;
+            } else {
+                const initials = UserProfileService.getInitials(profile?.displayName || profile?.email || '');
+                preview.innerHTML = initials || '👤';
+            }
+        }
+
+        async function handleProfileAvatarUpload(input) {
+            if (!input.files || !input.files[0]) return;
+
+            const user = AuthService.getCurrentUser();
+            if (!user) return;
+
+            try {
+                const base64 = await UserProfileService.uploadAvatar(user.email, input.files[0]);
+                currentUserProfile = { ...currentUserProfile, avatar: base64 };
+                updateProfileAvatarPreview(currentUserProfile);
+                updateSidebarAvatar(currentUserProfile);
+                alert('✅ Foto actualizada');
+            } catch (error) {
+                console.error('Error uploading avatar:', error);
+                alert('❌ ' + error.message);
+            }
+        }
+
+        async function removeProfileAvatar() {
+            const user = AuthService.getCurrentUser();
+            if (!user) return;
+
+            try {
+                await UserProfileService.removeAvatar(user.email);
+                currentUserProfile = { ...currentUserProfile, avatar: null };
+                updateProfileAvatarPreview(currentUserProfile);
+                updateSidebarAvatar(currentUserProfile);
+                alert('Foto eliminada');
+            } catch (error) {
+                console.error('Error removing avatar:', error);
+            }
+        }
+
+        async function saveProfile() {
+            const user = AuthService.getCurrentUser();
+            if (!user) return;
+
+            const data = {
+                displayName: document.getElementById('profileDisplayName').value.trim(),
+                phone: document.getElementById('profilePhone').value.trim(),
+                jobTitle: document.getElementById('profileJobTitle').value.trim(),
+                department: document.getElementById('profileDepartment').value.trim()
+            };
+
+            try {
+                await UserProfileService.updateProfile(user.email, data);
+                currentUserProfile = { ...currentUserProfile, ...data };
+
+                // Update sidebar name
+                document.getElementById('userName').textContent = data.displayName || user.email.split('@')[0];
+                updateSidebarAvatar(currentUserProfile);
+
+                alert('✅ Perfil actualizado');
+                closeProfileModal();
+            } catch (error) {
+                console.error('Error saving profile:', error);
+                alert('❌ Error guardando perfil: ' + error.message);
+            }
+        }
+
+        function updateSidebarAvatar(profile) {
+            const avatarEl = document.getElementById('userAvatarContent');
+            if (!avatarEl) return;
+
+            if (profile?.avatar && profile.avatar !== UserProfileService.DEFAULT_AVATAR) {
+                avatarEl.innerHTML = `<img src="${profile.avatar}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+            } else {
+                const initials = UserProfileService.getInitials(profile?.displayName || profile?.email || '');
+                avatarEl.textContent = initials || 'U';
+            }
+        }
+
+        // Load profile on page load (after auth)
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Wait a bit for auth to initialize
+            setTimeout(async () => {
+                const user = AuthService.getCurrentUser();
+                if (user) {
+                    const profile = await UserProfileService.getProfile(user.email);
+                    if (profile) {
+                        if (profile.displayName) {
+                            document.getElementById('userName').textContent = profile.displayName;
+                        }
+                        updateSidebarAvatar(profile);
+                    }
+                }
+            }, 1500);
+        });
     </script>
 
     <!-- Floating Chat Button (for quick access) -->
@@ -1485,11 +1727,12 @@
     <script src="js/listas-control.js"></script>
     <script src="js/notifications.js"></script>
     <script src="js/admin-panel.js"></script>
-    <script src="js/admin-companies.js"></script>
+    <script src="js/admin-companies.js?v=2"></script>
     <script src="js/soporte.js"></script>
     <script src="js/ai-service.js?v=2"></script>
     <script src="js/email-service.js"></script>
     <script src="js/auth.js"></script>
+    <script src="js/billing.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/app.js?v=3"></script>
     <script src="js/ui.js"></script>

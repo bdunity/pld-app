@@ -65,6 +65,11 @@ async function initDashboard() {
             }
         }
 
+        // Initialize SaaS Billing
+        if (typeof BillingService !== 'undefined') {
+            await BillingService.init();
+        }
+
         // Setup UI based on role
         setupUIForRole(user);
 
@@ -278,6 +283,11 @@ async function loadConfig() {
 
         // Update umbrales display
         updateUmbralesGiro();
+
+        // Render Billing UI
+        if (typeof BillingService !== 'undefined') {
+            BillingService.renderUI();
+        }
     }
 }
 
