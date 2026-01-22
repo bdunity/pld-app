@@ -341,70 +341,7 @@
                         </div>
                     </div>
 
-                    <!-- AI Configuration Section -->
-                    <div class="section">
-                        <div class="section-header">
-                            <h3 class="section-title">🤖 Inteligencia Artificial (Gemini)</h3>
-                        </div>
-                        <div class="card">
-                            <p class="text-muted" style="margin-bottom: 16px;">
-                                Configura la API de Google Gemini para habilitar el asistente de soporte, análisis de
-                                riesgo automático y generación de narrativas.
-                            </p>
 
-                            <div class="form-group">
-                                <label class="form-label">API Key de Gemini</label>
-                                <div style="display: flex; gap: 12px;">
-                                    <input type="password" id="cfgGeminiApiKey" class="form-input"
-                                        placeholder="Ingresa tu API key de Gemini" style="flex: 1;">
-                                    <button class="btn btn-secondary" onclick="toggleApiKeyVisibility()">👁️</button>
-                                </div>
-                                <small class="text-muted" style="margin-top: 8px; display: block;">
-                                    Obtén tu API key gratis en: <a href="https://aistudio.google.com/apikey"
-                                        target="_blank" style="color: var(--accent-primary);">Google AI Studio</a>
-                                </small>
-                            </div>
-
-                            <div class="form-group">
-                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                                    <input type="checkbox" id="cfgAiDemoMode" onchange="toggleAiDemoMode()"
-                                        style="width: 18px; height: 18px;">
-                                    <span><strong>Activar Modo Demo</strong> (Sin API Key)</span>
-                                </label>
-                                <small class="text-muted" style="margin-left: 28px;">Usa respuestas simuladas para
-                                    probar
-                                    la funcionalidad.</small>
-                            </div>
-
-                            <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
-                                <button class="btn btn-primary" onclick="saveGeminiApiKey()">💾 Guardar API Key</button>
-                                <button class="btn btn-secondary" onclick="testGeminiConnection()">🔌 Probar
-                                    Conexión</button>
-                            </div>
-
-                            <div id="geminiTestResult" style="margin-top: 16px;"></div>
-
-                            <!-- AI Features Status -->
-                            <div id="aiFeaturesStatus"
-                                style="margin-top: 24px; padding: 16px; background: var(--surface-secondary); border-radius: var(--radius-md);">
-                                <h5 style="margin: 0 0 12px 0;">🎯 Funciones Habilitadas</h5>
-                                <div class="form-grid" style="grid-template-columns: repeat(2, 1fr);">
-                                    <div style="display: flex; gap: 8px; align-items: center;">
-                                        <span id="aiSoporteStatus">⚪</span> Asistente de Soporte
-                                    </div>
-                                    <div style="display: flex; gap: 8px; align-items: center;">
-                                        <span id="aiRiesgoStatus">⚪</span> Análisis de Riesgo
-                                    </div>
-                                    <div style="display: flex; gap: 8px; align-items: center;">
-                                        <span id="aiNarrativaStatus">⚪</span> Generador de Narrativas
-                                    </div>
-                                    <div style="display: flex; gap: 8px; align-items: center;">
-                                        <span id="aiAnomaliasStatus">⚪</span> Detector de Anomalías
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -1687,6 +1624,83 @@
                     <div class="chat-message-bubble">
                         <div class="chat-message-meta">🤖 BDUNITY AI • Ahora</div>
                         <div style="line-height: 1.4;">¡Hola! Soy tu asistente experto. ¿En qué puedo ayudarte hoy?
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================================ -->
+            <!-- TAB: AI Configuration (Super Admin Only) -->
+            <!-- ================================ -->
+            <div id="tab-ai_config" class="tab-content">
+                <div class="section">
+                    <div class="section-header">
+                        <h3 class="section-title">🤖 Configuración de IA</h3>
+                    </div>
+
+                    <div class="card">
+                        <div class="section-header">
+                            <h3 class="section-title">☁️ Conexión Google Gemini</h3>
+                        </div>
+                        <p class="text-muted" style="margin-bottom: 16px;">
+                            Configura la API de Google Gemini para habilitar el asistente de soporte, análisis de
+                            riesgo automático y generación de narrativas.
+                        </p>
+
+                        <div class="alert alert-info" style="margin-bottom: 16px;">
+                            🔒 <strong>Seguro y Privado:</strong> Tu API Key se almacena encriptada y solo es visible
+                            para Super Administradores.
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">API Key de Gemini</label>
+                            <div style="display: flex; gap: 12px;">
+                                <input type="password" id="cfgGeminiApiKey" class="form-input"
+                                    placeholder="Ingresa tu API key de Gemini" style="flex: 1;">
+                                <button class="btn btn-secondary" onclick="toggleApiKeyVisibility()">👁️</button>
+                            </div>
+                            <small class="text-muted" style="margin-top: 8px; display: block;">
+                                Obtén tu API key gratis en: <a href="https://aistudio.google.com/apikey" target="_blank"
+                                    style="color: var(--accent-primary);">Google AI Studio</a>
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" id="cfgAiDemoMode" onchange="toggleAiDemoMode()"
+                                    style="width: 18px; height: 18px;">
+                                <span><strong>Activar Modo Demo</strong> (Sin API Key)</span>
+                            </label>
+                            <small class="text-muted" style="margin-left: 28px;">Usa respuestas simuladas para probar la
+                                funcionalidad.</small>
+                        </div>
+
+                        <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
+                            <button class="btn btn-primary" onclick="saveGeminiApiKey()">💾 Guardar API Key</button>
+                            <button class="btn btn-secondary" onclick="testGeminiConnection()">🔌 Probar
+                                Conexión</button>
+                        </div>
+
+                        <div id="geminiTestResult" style="margin-top: 16px;"></div>
+
+                        <!-- AI Features Status -->
+                        <div id="aiFeaturesStatus"
+                            style="margin-top: 24px; padding: 16px; background: var(--surface-secondary); border-radius: var(--radius-md);">
+                            <h5 style="margin: 0 0 12px 0;">🎯 Funciones Habilitadas</h5>
+                            <div class="form-grid" style="grid-template-columns: repeat(2, 1fr);">
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <span id="aiSoporteStatus">⚪</span> Asistente de Soporte
+                                </div>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <span id="aiRiesgoStatus">⚪</span> Análisis de Riesgo
+                                </div>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <span id="aiNarrativaStatus">⚪</span> Generador de Narrativas
+                                </div>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <span id="aiAnomaliasStatus">⚪</span> Detector de Anomalías
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
