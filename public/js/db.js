@@ -83,30 +83,35 @@ const dbService = {
      */
     applyTenantFilter(queryRef, collectionName) {
         // Collections that are global (shared across all tenants)
-        const GLOBAL_COLLECTIONS = ['users', 'empresas', 'config', 'audit_logs']; // 'users' is special, handled separately usually
+        const GLOBAL_COLLECTIONS = ['users', 'empresas', 'giros', 'audit_logs'];
 
         if (GLOBAL_COLLECTIONS.includes(collectionName)) {
             return queryRef;
         }
 
-        const { empresaId, isSuperAdmin } = this.getTenantContext();
+        const context = this.getTenantContext();
+        const { empresaId, isSuperAdmin, isViewingAs } = context;
 
-        // If super admin, they can see all (or we could implement a "view as" mode later)
-        // For now, let's assume Super Admin sees EVERYTHING from the raw DB view, 
-        // but UI might filter. Or, safer: Super Admin also needs explicit context to see data.
-        // Let's stick to the plan: "unless Super Admin".
-        if (isSuperAdmin) {
+        // CRITICAL: If super_admin is viewing a specific empresa, FILTER by that empresa
+        // This ensures data isolation when super_admin enters a company
+        if (isSuperAdmin && isViewingAs && empresaId) {
+            console.log(`🔒 Filtering ${collectionName} by viewingEmpresaId: ${empresaId}`);
+            return queryRef.where('empresaId', '==', empresaId);
+        }
+
+        // Super admin NOT viewing specific empresa - show all data (platform view)
+        if (isSuperAdmin && !isViewingAs) {
             return queryRef;
         }
 
+        // Regular user with empresaId - filter by their empresa
         if (empresaId) {
             return queryRef.where('empresaId', '==', empresaId);
         }
 
-        // If no user and not global collection, maybe return empty or throw?
-        // For safety, if no context, we shouldn't show sensitive data.
+        // No context - warn and return unfiltered (login flow safety)
         console.warn(`Querying ${collectionName} without tenant context!`);
-        return queryRef; // Fallback for now to avoid breaking login flow if called early
+        return queryRef;
     },
 
     /**

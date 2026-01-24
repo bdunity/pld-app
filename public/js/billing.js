@@ -39,7 +39,19 @@ const BillingService = {
     async init() {
         if (typeof AuthService === 'undefined' || !AuthService.getCurrentUser()) return;
 
-        const { empresaId } = AuthService.getCurrentUser();
+        const user = AuthService.getCurrentUser();
+        let empresaId = user.empresaId;
+
+        // Check if super_admin is viewing a specific empresa
+        if (user.role === 'super_admin') {
+            try {
+                const session = JSON.parse(sessionStorage.getItem('pld_bdu_session') || '{}');
+                if (session.viewingEmpresaId) {
+                    empresaId = session.viewingEmpresaId;
+                }
+            } catch (e) { /* ignore */ }
+        }
+
         if (empresaId) {
             await this.loadSubscription(empresaId);
         }
