@@ -358,27 +358,40 @@ const CompaniesService = {
     },
 
     /**
-     * Impersonate a company (Simulate login)
+     * Enter a company as Super Admin (View Mode - keeps super_admin role)
+     * This allows super_admin to see company data without losing their privileges
      */
     async impersonate(empresaId) {
-        const users = await dbService.getAll('users');
-        const targetUser = users.find(u => u.empresaId === empresaId && u.role === 'admin');
+        const currentUser = AuthService.getCurrentUser();
 
-        if (targetUser) {
-            if (confirm(`¿Deseas cambiar a la vista de ${targetUser.email}?`)) {
-                const session = {
-                    email: targetUser.email,
-                    role: 'admin',
-                    empresaId: empresaId,
-                    loginTime: new Date().toISOString(),
-                    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-                    isImpersonating: true
-                };
-                sessionStorage.setItem(AuthService.SESSION_KEY, JSON.stringify(session));
-                window.location.reload();
-            }
-        } else {
-            alert('No se encontró un usuario administrador para esta empresa.');
+        // Get company info
+        const company = await dbService.get('empresas', empresaId);
+        if (!company) {
+            showToast('Empresa no encontrada', 'danger');
+            return;
+        }
+
+        const companyName = company.razonSocial || company.nombreComercial || empresaId;
+
+        if (confirm(`¿Entrar al espacio de trabajo de "${companyName}"?`)) {
+            // Keep super_admin role but add viewing context
+            const session = {
+                email: currentUser.email,
+                role: 'super_admin', // KEEP super_admin role
+                empresaId: null, // Super admin doesn't belong to a specific empresa
+                viewingEmpresaId: empresaId, // NEW: Context for which empresa we're viewing
+                viewingEmpresaName: companyName,
+                loginTime: new Date().toISOString(),
+                expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                isImpersonating: true
+            };
+
+            // Cache empresa name for context indicator
+            sessionStorage.setItem('empresa_name_' + empresaId, companyName);
+            sessionStorage.setItem(AuthService.SESSION_KEY, JSON.stringify(session));
+
+            showToast(`Entrando a ${companyName}...`, 'info');
+            setTimeout(() => window.location.reload(), 300);
         }
     }
 };

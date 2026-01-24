@@ -161,10 +161,11 @@ function setupUIForRole(user) {
             title: 'PLATAFORMA',
             items: ['empresas', 'dashboard', 'billing', 'ai_config']
         },
-        // Context indicator when impersonating
-        ...(isImpersonating ? [{
+        // Context indicator when viewing a specific empresa
+        ...(isImpersonating && session.viewingEmpresaId ? [{
             type: 'context',
-            empresaId: session.empresaId
+            empresaId: session.viewingEmpresaId,
+            empresaName: session.viewingEmpresaName
         }] : []),
         // Show tenant modules when impersonating or if viewing a specific empresa
         ...(isImpersonating ? [
@@ -204,16 +205,16 @@ function setupUIForRole(user) {
     sections.forEach(section => {
         // Context indicator (special type)
         if (section.type === 'context') {
-            const empresaName = getEmpresaName(section.empresaId);
+            const empresaName = section.empresaName || getEmpresaName(section.empresaId);
             sidebarMenu.innerHTML += `
                 <li class="sidebar-context-indicator">
                     <div class="context-badge">
-                        <span class="context-icon">🔄</span>
+                        <span class="context-icon">🏢</span>
                         <div class="context-info">
-                            <span class="context-label">Operando como:</span>
+                            <span class="context-label">Viendo empresa:</span>
                             <span class="context-empresa">${empresaName}</span>
                         </div>
-                        <button class="btn-exit-context" onclick="exitImpersonation()" title="Volver a Super Admin">✕</button>
+                        <button class="btn-exit-context" onclick="exitImpersonation()" title="Salir de esta empresa">✕</button>
                     </div>
                 </li>
             `;

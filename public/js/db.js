@@ -30,6 +30,22 @@ const dbService = {
         if (typeof AuthService !== 'undefined') {
             const user = AuthService.getCurrentUser();
             if (user) {
+                // Check for session with viewingEmpresaId (super_admin viewing specific company)
+                try {
+                    const session = sessionStorage.getItem('pld_bdu_session');
+                    if (session) {
+                        const sessionData = JSON.parse(session);
+                        // If super_admin is viewing a specific empresa, use that for filtering
+                        if (sessionData.viewingEmpresaId && user.role === 'super_admin') {
+                            return {
+                                empresaId: sessionData.viewingEmpresaId,
+                                isSuperAdmin: true,
+                                isViewingAs: true
+                            };
+                        }
+                    }
+                } catch (e) { /* ignore */ }
+
                 return {
                     empresaId: user.empresaId,
                     isSuperAdmin: user.role === 'super_admin'
@@ -42,6 +58,14 @@ const dbService = {
             const session = sessionStorage.getItem('pld_bdu_session');
             if (session) {
                 const user = JSON.parse(session);
+                // Support viewingEmpresaId for super_admin
+                if (user.viewingEmpresaId && user.role === 'super_admin') {
+                    return {
+                        empresaId: user.viewingEmpresaId,
+                        isSuperAdmin: true,
+                        isViewingAs: true
+                    };
+                }
                 return {
                     empresaId: user.empresaId,
                     isSuperAdmin: user.role === 'super_admin'
