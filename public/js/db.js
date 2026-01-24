@@ -82,8 +82,8 @@ const dbService = {
      * Helper to apply tenant filter to a query reference
      */
     applyTenantFilter(queryRef, collectionName) {
-        // Collections that are global (shared across all tenants)
-        const GLOBAL_COLLECTIONS = ['users', 'empresas', 'giros', 'audit_logs'];
+        // Collections that are truly global (public/shared data)
+        const GLOBAL_COLLECTIONS = ['giros'];
 
         if (GLOBAL_COLLECTIONS.includes(collectionName)) {
             return queryRef;
@@ -92,24 +92,44 @@ const dbService = {
         const context = this.getTenantContext();
         const { empresaId, isSuperAdmin, isViewingAs } = context;
 
-        // CRITICAL: If super_admin is viewing a specific empresa, FILTER by that empresa
-        // This ensures data isolation when super_admin enters a company
-        if (isSuperAdmin && isViewingAs && empresaId) {
-            console.log(`🔒 Filtering ${collectionName} by viewingEmpresaId: ${empresaId}`);
-            return queryRef.where('empresaId', '==', empresaId);
-        }
-
-        // Super admin NOT viewing specific empresa - show all data (platform view)
+        // 1. Super Admin in Platform View (NOT impersonating)
+        // Can see everything in 'empresas', 'users', 'audit_logs', etc.
         if (isSuperAdmin && !isViewingAs) {
             return queryRef;
         }
 
-        // Regular user with empresaId - filter by their empresa
+        // 2. Super Admin Impersonating OR Regular User
+        // MUST filter by empresaId
+
+        // Special case: 'empresas' collection
+        // Regular users/Impersonators should only see the company they are in
+        if (collectionName === 'empresas') {
+            if (empresaId) {
+                // If querying for a specific company ID (e.g. .doc(id)), this filter might be redundant but safe
+                // If querying list, this restricts to ONLY their company
+                // Note: Firestore allows querying by document ID field using FieldPath.documentId() but simple where('id', '==', ...) works if id field exists
+                return queryRef.where('id', '==', empresaId);
+            }
+            // If no empresaId (e.g. login screen?), return empty or let it fail securely
+            return queryRef.where('id', '==', 'non_existent_id');
+        }
+
         if (empresaId) {
+            // Log for debugging (remove in prod if too noisy)
+            // console.log(`🔒 Filtering ${collectionName} by empresaId: ${empresaId}`);
             return queryRef.where('empresaId', '==', empresaId);
         }
 
-        // No context - warn and return unfiltered (login flow safety)
+        // No context - warn and return unfiltered (login flow safety) OR safe default?
+        // For security, default to empty for sensitive collections if no context
+        // But need to be careful not to break login (users collection read)
+        if (collectionName === 'users') {
+            // Login flow typically gets by ID (email) which doesn't use this filter if using .doc().get()
+            // But valid queries might need this. 
+            console.warn(`Querying ${collectionName} without tenant context!`);
+            return queryRef;
+        }
+
         console.warn(`Querying ${collectionName} without tenant context!`);
         return queryRef;
     },
@@ -146,7 +166,7 @@ const dbService = {
             };
 
             // Enforce empresaId on save for tenant-specific collections
-            const GLOBAL_COLLECTIONS = ['users', 'empresas', 'config', 'audit_logs'];
+            const GLOBAL_COLLECTIONS = ['giros'];
             if (!GLOBAL_COLLECTIONS.includes(collectionName) && !dataToSave.empresaId && empresaId) {
                 dataToSave.empresaId = empresaId;
             }

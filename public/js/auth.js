@@ -411,6 +411,7 @@ const AuthService = {
             id: Date.now().toString(),
             fecha: new Date().toISOString(),
             user: user?.email || 'Sistema',
+            empresaId: user?.empresaId || (user?.role === 'super_admin' ? null : null), // Assign empresaId if available
             action: action,
             details: details
         };
