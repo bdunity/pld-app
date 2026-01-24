@@ -396,11 +396,74 @@ function switchTab(tabId) {
         setTimeout(() => CompaniesService.loadCompanies(), 100);
     } else if (tabId === 'soporte' && typeof loadSoporte === 'function') {
         setTimeout(() => loadSoporte(), 100);
+    } else if (tabId === 'upload') {
+        setTimeout(() => loadUploadEmpresaContext(), 100);
     }
 
     // Load export giros when switching to export tab
     if (tabId === 'export') {
         setTimeout(() => loadExportGiros(), 100);
+    }
+}
+
+/**
+ * Load empresa context for upload section
+ */
+async function loadUploadEmpresaContext() {
+    const empresa = EmpresasService?.getCurrentEmpresa();
+
+    // Update empresa info
+    const nameEl = document.getElementById('uploadEmpresaName');
+    const rfcEl = document.getElementById('uploadEmpresaRFC');
+    const girosEl = document.getElementById('uploadEmpresaGiros');
+
+    if (!empresa) {
+        if (nameEl) nameEl.textContent = 'No hay empresa seleccionada';
+        if (rfcEl) rfcEl.textContent = 'Selecciona una empresa primero';
+        return;
+    }
+
+    // Populate empresa info
+    if (nameEl) nameEl.textContent = empresa.razonSocial || empresa.nombreComercial || 'Empresa';
+    if (rfcEl) rfcEl.textContent = `RFC: ${empresa.rfc || 'N/A'}`;
+
+    // Load and display giros (activities)
+    if (girosEl && typeof GirosCatalogo !== 'undefined') {
+        const giroIds = empresa.giros || ['juegos_sorteos'];
+        const badges = giroIds.map(giroId => {
+            const giro = GirosCatalogo.getById(giroId);
+            const nombre = giro?.nombre || giroId;
+            return `<span class="badge badge-info" style="font-size: 0.75em; padding: 6px 10px;">${giro?.icono || '📋'} ${nombre}</span>`;
+        }).join('');
+        girosEl.innerHTML = badges || '<span class="text-muted">Sin giros registrados</span>';
+    }
+
+    // Load upload history
+    if (typeof CargasService !== 'undefined') {
+        const cargas = await CargasService.getAll();
+        const container = document.getElementById('uploadHistoryContainer');
+
+        if (container) {
+            if (cargas.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">Sin cargas recientes para esta empresa</p>';
+            } else {
+                const recentCargas = cargas.slice(-5).reverse();
+                container.innerHTML = `
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        ${recentCargas.map(c => `
+                            <div style="display: flex; align-items: center; gap: 12px; padding: 8px; background: var(--surface-elevated); border-radius: 8px;">
+                                <span style="font-size: 1.2em;">📄</span>
+                                <div style="flex: 1;">
+                                    <strong>${c.archivoNombre || 'Archivo'}</strong>
+                                    <br><small class="text-muted">Periodo: ${c.periodoId || 'N/A'} | ${c.totalRegistros || 0} registros</small>
+                                </div>
+                                <span class="badge badge-success">✓</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+        }
     }
 }
 
