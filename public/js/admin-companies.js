@@ -374,19 +374,26 @@ const CompaniesService = {
         const companyName = company.razonSocial || company.nombreComercial || empresaId;
 
         if (confirm(`¿Entrar al espacio de trabajo de "${companyName}"?`)) {
-            // Keep super_admin role but add viewing context
+
+            // 1. Update EmpresasService to use this company
+            if (typeof EmpresasService !== 'undefined') {
+                EmpresasService.currentEmpresa = company;
+                sessionStorage.setItem('currentEmpresaId', empresaId);
+            }
+
+            // 2. Keep super_admin role but add viewing context
             const session = {
                 email: currentUser.email,
                 role: 'super_admin', // KEEP super_admin role
                 empresaId: null, // Super admin doesn't belong to a specific empresa
-                viewingEmpresaId: empresaId, // NEW: Context for which empresa we're viewing
+                viewingEmpresaId: empresaId, // Context for which empresa we're viewing
                 viewingEmpresaName: companyName,
                 loginTime: new Date().toISOString(),
                 expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
                 isImpersonating: true
             };
 
-            // Cache empresa name for context indicator
+            // 3. Cache empresa info
             sessionStorage.setItem('empresa_name_' + empresaId, companyName);
             sessionStorage.setItem(AuthService.SESSION_KEY, JSON.stringify(session));
 

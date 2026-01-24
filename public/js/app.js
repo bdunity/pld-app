@@ -47,9 +47,23 @@ async function initDashboard() {
         // Initialize DB
         await dbService.init();
 
-        // Initialize Multi-Tenant System
+        // Initialize Multi-Tenant System with context awareness
         if (typeof EmpresasService !== 'undefined') {
             await EmpresasService.init();
+
+            // Check if super_admin is viewing a specific empresa
+            const session = JSON.parse(sessionStorage.getItem('pld_bdu_session') || '{}');
+            const viewingEmpresaId = session.viewingEmpresaId;
+
+            if (viewingEmpresaId && user.role === 'super_admin') {
+                // Super admin viewing specific company - load THAT empresa
+                await EmpresasService.selectEmpresa(viewingEmpresaId);
+                console.log('🔍 Super Admin viendo empresa:', session.viewingEmpresaName || viewingEmpresaId);
+            } else if (user.empresaId) {
+                // Regular user - load their empresa
+                await EmpresasService.selectEmpresa(user.empresaId);
+            }
+
             const empresa = EmpresasService.getCurrentEmpresa();
             if (empresa) {
                 console.log('🏢 Empresa activa:', empresa.nombreComercial || empresa.razonSocial);
@@ -62,6 +76,11 @@ async function initDashboard() {
                     console.log('📊 Giro:', giroParams.giro.nombre);
                     console.log('📊 Umbral Aviso:', giroParams.umbralAvisoUMA, 'UMA');
                 }
+
+                // Update appConfig with empresa data
+                appConfig.rfc = empresa.rfc || appConfig.rfc;
+                appConfig.razonSocial = empresa.razonSocial || appConfig.razonSocial;
+                appConfig.nombreComercial = empresa.nombreComercial || '';
             }
         }
 
@@ -285,16 +304,28 @@ function exitImpersonation() {
     const user = AuthService.getCurrentUser();
     if (!user) return;
 
-    // Restore super admin session without impersonation
+    // 1. Clear EmpresasService context
+    if (typeof EmpresasService !== 'undefined') {
+        EmpresasService.currentEmpresa = null;
+    }
+
+    // 2. Clear cached empresa IDs
+    sessionStorage.removeItem('currentEmpresaId');
+
+    // 3. Restore super admin session without impersonation
     const session = {
         email: user.email,
         role: 'super_admin',
         loginTime: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        isImpersonating: false
+        isImpersonating: false,
+        viewingEmpresaId: null,
+        viewingEmpresaName: null
     };
     sessionStorage.setItem(AuthService.SESSION_KEY, JSON.stringify(session));
-    window.location.reload();
+
+    showToast('Volviendo a vista global...', 'info');
+    setTimeout(() => window.location.reload(), 300);
 }
 
 /**
@@ -374,10 +405,14 @@ function switchTab(tabId) {
 }
 
 /**
- * Load configuration
+ * Load configuration (per-empresa config)
  */
 async function loadConfig() {
-    const config = await dbService.get('config', 'main');
+    // Get config ID based on current empresa context
+    const empresa = EmpresasService?.getCurrentEmpresa();
+    const configId = empresa ? `config_${empresa.id}` : 'main';
+
+    const config = await dbService.get('config', configId);
     if (config) {
         appConfig = { ...appConfig, ...config };
     }
@@ -453,8 +488,12 @@ async function saveConfig() {
     const avisoOverride = document.getElementById('cfgAvisoOverride')?.value;
     const monitoreoOverride = document.getElementById('cfgMonitoreoOverride')?.value;
 
+    // Get config ID based on current empresa context
+    const empresa = EmpresasService?.getCurrentEmpresa();
+    const configId = empresa ? `config_${empresa.id}` : 'main';
+
     appConfig = {
-        id: 'main',
+        id: configId, // Use empresa-specific config ID
         rfc: document.getElementById('cfgRFC').value,
         razonSocial: document.getElementById('cfgRazonSocial').value,
         nombreComercial: document.getElementById('cfgNombreComercial')?.value || '',
