@@ -12,7 +12,7 @@ const AuthService = {
         super_admin: {
             name: 'Super Admin BDUNITY',
             icon: '♾️',
-            tabs: ['empresas', 'dashboard', 'config', 'upload', 'operations', 'monitoring', 'kyc', 'compliance', 'export', 'reports', 'audit', 'soporte', 'ai_config'],
+            tabs: ['empresas', 'dashboard', 'billing', 'config', 'upload', 'operations', 'monitoring', 'kyc', 'compliance', 'export', 'reports', 'audit', 'soporte', 'ai_config'],
             permissions: ['read_all', 'write_all', 'admin', 'super_admin', 'users']
         },
         admin: {

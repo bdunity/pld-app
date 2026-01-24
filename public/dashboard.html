@@ -1072,6 +1072,92 @@
                     </div>
                 </div>
             </div>
+
+            <!-- ================================ -->
+            <!-- TAB: Billing (Super Admin Only) -->
+            <!-- ================================ -->
+            <div id="tab-billing" class="tab-content">
+                <div class="section">
+                    <div class="section-header">
+                        <div>
+                            <h3 class="section-title">💳 Facturación & Suscripciones</h3>
+                            <p class="text-muted" style="margin-top: 4px;">Gestión de planes y pagos de clientes</p>
+                        </div>
+                    </div>
+
+                    <!-- Revenue Stats -->
+                    <div class="stats-grid" style="margin-bottom: 24px;">
+                        <div class="stat-card stat-card--deposits">
+                            <span class="stat-icon">💰</span>
+                            <div class="stat-value" id="billingMRR">$0</div>
+                            <div class="stat-label">MRR (Ingreso Mensual)</div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon">🏢</span>
+                            <div class="stat-value" id="billingActiveCompanies">0</div>
+                            <div class="stat-label">Empresas Activas</div>
+                        </div>
+                        <div class="stat-card stat-card--alerts">
+                            <span class="stat-icon">⚠️</span>
+                            <div class="stat-value" id="billingPending">0</div>
+                            <div class="stat-label">Pagos Pendientes</div>
+                        </div>
+                        <div class="stat-card stat-card--monitoring">
+                            <span class="stat-icon">📈</span>
+                            <div class="stat-value" id="billingGrowth">0%</div>
+                            <div class="stat-label">Crecimiento Mensual</div>
+                        </div>
+                    </div>
+
+                    <!-- Plans Distribution -->
+                    <div class="grid grid-2" style="margin-bottom: 24px;">
+                        <div class="card">
+                            <h4 style="margin-bottom: 16px;">📊 Distribución de Planes</h4>
+                            <div style="height: 200px;"><canvas id="billingPlansChart"></canvas></div>
+                        </div>
+                        <div class="card">
+                            <h4 style="margin-bottom: 16px;">📅 Próximos Vencimientos</h4>
+                            <div id="billingUpcoming" style="max-height: 200px; overflow-y: auto;">
+                                <p class="text-muted text-center">Cargando...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Subscriptions Table -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h4 class="card-title">📋 Suscripciones Activas</h4>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" id="billingSearch" class="form-input" placeholder="Buscar empresa..."
+                                    style="width: 200px;">
+                                <select id="billingPlanFilter" class="form-select" style="width: 150px;">
+                                    <option value="">Todos los planes</option>
+                                    <option value="basic">Básico</option>
+                                    <option value="pro">Pro</option>
+                                    <option value="enterprise">Enterprise</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table class="table" id="billingTable">
+                                <thead>
+                                    <tr>
+                                        <th>Empresa</th>
+                                        <th>Plan</th>
+                                        <th>Precio</th>
+                                        <th>Usuarios</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="billingTableBody">
+                                    <!-- Loaded by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </main>
 

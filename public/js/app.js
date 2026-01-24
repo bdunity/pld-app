@@ -111,10 +111,14 @@ async function initDashboard() {
 }
 
 /**
- * Setup UI based on user role
+ * Setup UI based on user role - SaaS Multi-Tenant Navigation
  */
 function setupUIForRole(user) {
     const role = AuthService.ROLES[user.role];
+    const isSuperAdmin = user.role === 'super_admin';
+    const isAdmin = user.role === 'admin';
+    const session = JSON.parse(sessionStorage.getItem(AuthService.SESSION_KEY) || '{}');
+    const isImpersonating = session.isImpersonating;
 
     // Update user info
     document.getElementById('userName').textContent = user.email.split('@')[0];
@@ -125,40 +129,158 @@ function setupUIForRole(user) {
         document.getElementById('currentUserEmail').textContent = user.email;
     }
 
-    // Build sidebar menu
+    // Module definitions with sections
     const menuItems = {
+        // Platform (Super Admin)
+        empresas: { icon: '🏢', label: 'Empresas' },
+        dashboard: { icon: '📊', label: 'Dashboard Global' },
+        billing: { icon: '💳', label: 'Facturación' },
+        ai_config: { icon: '🤖', label: 'Configuración IA' },
+
+        // Tenant - Settings
         config: { icon: '⚙️', label: 'Configuración' },
+        users: { icon: '👥', label: 'Usuarios' },
+
+        // Tenant - Operations
         upload: { icon: '📁', label: 'Carga de Datos' },
         operations: { icon: '📊', label: 'Operaciones' },
         monitoring: { icon: '📈', label: 'Monitoreo 6 Meses' },
-        kyc: { icon: '👥', label: 'Padrón KYC' },
+        kyc: { icon: '🔍', label: 'Padrón KYC' },
         compliance: { icon: '✅', label: 'Cumplimiento' },
-        export: { icon: '📤', label: 'Exportar' },
-        reports: { icon: '📋', label: 'Banco de Reportes' },
+        export: { icon: '📤', label: 'Exportar XML' },
+        reports: { icon: '📋', label: 'Reportes' },
         audit: { icon: '🛡️', label: 'Bitácora' },
-        soporte: { icon: '🎫', label: 'Soporte' },
-        dashboard: { icon: '📊', label: 'Dashboard' },
-        empresas: { icon: '🏢', label: 'Espacios de Trabajo' },
-        ai_config: { icon: '🤖', label: 'Configuración IA' }
+
+        // Help
+        soporte: { icon: '🎫', label: 'Soporte' }
     };
+
+    // Section definitions based on role
+    const sections = isSuperAdmin ? [
+        {
+            title: 'PLATAFORMA',
+            items: ['empresas', 'dashboard', 'billing', 'ai_config']
+        },
+        // Context indicator when impersonating
+        ...(isImpersonating ? [{
+            type: 'context',
+            empresaId: session.empresaId
+        }] : []),
+        // Show tenant modules when impersonating or if viewing a specific empresa
+        ...(isImpersonating ? [
+            {
+                title: 'EMPRESA ACTIVA',
+                items: ['config', 'upload', 'operations', 'monitoring', 'kyc', 'compliance', 'export', 'reports', 'audit']
+            }
+        ] : []),
+        {
+            title: 'AYUDA',
+            items: ['soporte']
+        }
+    ] : isAdmin ? [
+        {
+            title: 'MI EMPRESA',
+            items: ['config']
+        },
+        {
+            title: 'OPERACIONES PLD',
+            items: ['upload', 'operations', 'monitoring', 'kyc', 'compliance', 'export', 'reports', 'audit']
+        },
+        {
+            title: 'AYUDA',
+            items: ['soporte']
+        }
+    ] : [
+        // Regular user or visitor
+        {
+            title: 'MÓDULOS',
+            items: role.tabs
+        }
+    ];
 
     const sidebarMenu = document.getElementById('sidebarMenu');
     sidebarMenu.innerHTML = '';
 
-    role.tabs.forEach(tabId => {
-        const item = menuItems[tabId];
-        if (item) {
-            // Sidebar item
+    sections.forEach(section => {
+        // Context indicator (special type)
+        if (section.type === 'context') {
+            const empresaName = getEmpresaName(section.empresaId);
             sidebarMenu.innerHTML += `
-                <li class="sidebar-item">
-                    <a href="#" class="sidebar-link" data-tab="${tabId}" onclick="switchTab('${tabId}'); return false;">
-                        <span class="sidebar-link-icon">${item.icon}</span>
-                        ${item.label}
-                    </a>
+                <li class="sidebar-context-indicator">
+                    <div class="context-badge">
+                        <span class="context-icon">🔄</span>
+                        <div class="context-info">
+                            <span class="context-label">Operando como:</span>
+                            <span class="context-empresa">${empresaName}</span>
+                        </div>
+                        <button class="btn-exit-context" onclick="exitImpersonation()" title="Volver a Super Admin">✕</button>
+                    </div>
+                </li>
+            `;
+            return;
+        }
+
+        // Section header
+        if (section.title) {
+            sidebarMenu.innerHTML += `
+                <li class="sidebar-section-header">
+                    <span>${section.title}</span>
                 </li>
             `;
         }
+
+        // Section items
+        section.items.forEach(tabId => {
+            const item = menuItems[tabId];
+            if (item && role.tabs.includes(tabId)) {
+                sidebarMenu.innerHTML += `
+                    <li class="sidebar-item">
+                        <a href="#" class="sidebar-link" data-tab="${tabId}" onclick="switchTab('${tabId}'); return false;">
+                            <span class="sidebar-link-icon">${item.icon}</span>
+                            ${item.label}
+                        </a>
+                    </li>
+                `;
+            }
+        });
     });
+}
+
+/**
+ * Get empresa name by ID (helper)
+ */
+function getEmpresaName(empresaId) {
+    // Try to get from cache or session
+    const cached = sessionStorage.getItem('empresa_name_' + empresaId);
+    if (cached) return cached;
+
+    // Fallback: will be updated async
+    dbService.get('empresas', empresaId).then(empresa => {
+        if (empresa) {
+            sessionStorage.setItem('empresa_name_' + empresaId, empresa.razonSocial || empresa.nombreComercial || empresaId);
+        }
+    });
+
+    return empresaId; // Temporary until async completes
+}
+
+/**
+ * Exit impersonation mode and return to super admin view
+ */
+function exitImpersonation() {
+    const user = AuthService.getCurrentUser();
+    if (!user) return;
+
+    // Restore super admin session without impersonation
+    const session = {
+        email: user.email,
+        role: 'super_admin',
+        loginTime: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        isImpersonating: false
+    };
+    sessionStorage.setItem(AuthService.SESSION_KEY, JSON.stringify(session));
+    window.location.reload();
 }
 
 /**
