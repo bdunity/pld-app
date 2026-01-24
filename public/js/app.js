@@ -118,9 +118,9 @@ function setupUIForRole(user) {
     const isSuperAdmin = user.role === 'super_admin';
     const isAdmin = user.role === 'admin';
     const session = JSON.parse(sessionStorage.getItem(AuthService.SESSION_KEY) || '{}');
-    const isImpersonating = session.isImpersonating;
+    const isViewingCompany = session.isImpersonating && session.viewingEmpresaId;
 
-    // Update user info
+    // Update user info in sidebar
     document.getElementById('userName').textContent = user.email.split('@')[0];
     document.getElementById('userRole').textContent = role.icon + ' ' + role.name;
     document.getElementById('userAvatar').textContent = user.email.charAt(0).toUpperCase();
@@ -129,19 +129,16 @@ function setupUIForRole(user) {
         document.getElementById('currentUserEmail').textContent = user.email;
     }
 
-    // Module definitions with sections
+    // All available menu items
     const menuItems = {
-        // Platform (Super Admin)
+        // Platform modules (Super Admin only)
         empresas: { icon: '🏢', label: 'Empresas' },
         dashboard: { icon: '📊', label: 'Dashboard Global' },
         billing: { icon: '💳', label: 'Facturación' },
         ai_config: { icon: '🤖', label: 'Configuración IA' },
 
-        // Tenant - Settings
+        // Tenant modules (per-company)
         config: { icon: '⚙️', label: 'Configuración' },
-        users: { icon: '👥', label: 'Usuarios' },
-
-        // Tenant - Operations
         upload: { icon: '📁', label: 'Carga de Datos' },
         operations: { icon: '📊', label: 'Operaciones' },
         monitoring: { icon: '📈', label: 'Monitoreo 6 Meses' },
@@ -150,62 +147,76 @@ function setupUIForRole(user) {
         export: { icon: '📤', label: 'Exportar XML' },
         reports: { icon: '📋', label: 'Reportes' },
         audit: { icon: '🛡️', label: 'Bitácora' },
-
-        // Help
         soporte: { icon: '🎫', label: 'Soporte' }
     };
 
-    // Section definitions based on role
-    const sections = isSuperAdmin ? [
-        {
-            title: 'PLATAFORMA',
-            items: ['empresas', 'dashboard', 'billing', 'ai_config']
-        },
-        // Context indicator when viewing a specific empresa
-        ...(isImpersonating && session.viewingEmpresaId ? [{
-            type: 'context',
-            empresaId: session.viewingEmpresaId,
-            empresaName: session.viewingEmpresaName
-        }] : []),
-        // Show tenant modules when impersonating or if viewing a specific empresa
-        ...(isImpersonating ? [
-            {
-                title: 'EMPRESA ACTIVA',
-                items: ['config', 'upload', 'operations', 'monitoring', 'kyc', 'compliance', 'export', 'reports', 'audit']
-            }
-        ] : []),
-        {
-            title: 'AYUDA',
-            items: ['soporte']
-        }
-    ] : isAdmin ? [
-        {
-            title: 'MI EMPRESA',
-            items: ['config']
-        },
-        {
-            title: 'OPERACIONES PLD',
-            items: ['upload', 'operations', 'monitoring', 'kyc', 'compliance', 'export', 'reports', 'audit']
-        },
-        {
-            title: 'AYUDA',
-            items: ['soporte']
-        }
-    ] : [
-        // Regular user or visitor
-        {
-            title: 'MÓDULOS',
-            items: role.tabs
-        }
-    ];
+    // Build sections based on role and context
+    let sections = [];
 
+    if (isSuperAdmin) {
+        // PLATFORM section - always visible for super_admin
+        sections.push({
+            title: 'PLATAFORMA',
+            items: ['empresas', 'dashboard', 'billing', 'ai_config'],
+            requiresTab: true
+        });
+
+        // If viewing a specific company, show its modules
+        if (isViewingCompany) {
+            sections.push({
+                type: 'context',
+                empresaId: session.viewingEmpresaId,
+                empresaName: session.viewingEmpresaName
+            });
+
+            sections.push({
+                title: 'EMPRESA ACTIVA',
+                items: ['config', 'upload', 'operations', 'monitoring', 'kyc', 'compliance', 'export', 'reports', 'audit'],
+                requiresTab: false // Super admin can access ALL modules
+            });
+        }
+
+        sections.push({
+            title: 'AYUDA',
+            items: ['soporte'],
+            requiresTab: true
+        });
+
+    } else if (isAdmin) {
+        // Admin sees their company's modules
+        sections.push({
+            title: 'MI EMPRESA',
+            items: ['config'],
+            requiresTab: true
+        });
+        sections.push({
+            title: 'OPERACIONES PLD',
+            items: ['upload', 'operations', 'monitoring', 'kyc', 'compliance', 'export', 'reports', 'audit'],
+            requiresTab: true
+        });
+        sections.push({
+            title: 'AYUDA',
+            items: ['soporte'],
+            requiresTab: true
+        });
+
+    } else {
+        // Regular user or visitor - simple tab list
+        sections.push({
+            title: 'MÓDULOS',
+            items: role.tabs,
+            requiresTab: true
+        });
+    }
+
+    // Render sidebar
     const sidebarMenu = document.getElementById('sidebarMenu');
     sidebarMenu.innerHTML = '';
 
     sections.forEach(section => {
-        // Context indicator (special type)
+        // Context indicator (special type for viewing company)
         if (section.type === 'context') {
-            const empresaName = section.empresaName || getEmpresaName(section.empresaId);
+            const empresaName = section.empresaName || section.empresaId;
             sidebarMenu.innerHTML += `
                 <li class="sidebar-context-indicator">
                     <div class="context-badge">
@@ -230,10 +241,12 @@ function setupUIForRole(user) {
             `;
         }
 
-        // Section items
+        // Section items - super admin viewing company bypasses tab check
         section.items.forEach(tabId => {
             const item = menuItems[tabId];
-            if (item && role.tabs.includes(tabId)) {
+            const hasAccess = !section.requiresTab || role.tabs.includes(tabId);
+
+            if (item && hasAccess) {
                 sidebarMenu.innerHTML += `
                     <li class="sidebar-item">
                         <a href="#" class="sidebar-link" data-tab="${tabId}" onclick="switchTab('${tabId}'); return false;">

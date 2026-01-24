@@ -167,6 +167,19 @@ const AuthService = {
         const user = this.getCurrentUser();
         if (!user) return false;
 
+        // Super admin viewing a company has access to ALL tabs
+        if (user.role === 'super_admin') {
+            try {
+                const session = sessionStorage.getItem(this.SESSION_KEY);
+                if (session) {
+                    const sessionData = JSON.parse(session);
+                    if (sessionData.isImpersonating && sessionData.viewingEmpresaId) {
+                        return true; // Super admin can access everything
+                    }
+                }
+            } catch (e) { /* ignore */ }
+        }
+
         const roleConfig = this.ROLES[user.role];
         return roleConfig?.tabs.includes(tabId) || false;
     },
