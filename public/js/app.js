@@ -986,6 +986,17 @@ async function processFile() {
                 }
             });
 
+            // Verify SaaS Quotas
+            if (typeof FeatureService !== 'undefined' && typeof BillingService !== 'undefined') {
+                const currentOpsCount = await dbService.count('operations');
+                const totalOps = currentOpsCount + newOps.length;
+
+                if (!FeatureService.checkQuota('maxOperations', totalOps)) {
+                    const plan = BillingService.getCurrentPlan();
+                    throw new Error(`🛑 Límite de plan excedido. Tu plan ${plan.name} permite ${plan.maxOperations} operaciones. (Intentas subir ${newOps.length}, Total sería ${totalOps})`);
+                }
+            }
+
             // Save to DB
             await dbService.addItems('operations', newOps);
             await dbService.addItems('kyc', Array.from(newClients.values()));
