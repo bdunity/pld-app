@@ -92,13 +92,11 @@ const AuthService = {
             }
 
             // Validate role access
-            if (expectedRole === 'admin' && profile.role !== 'admin' && profile.role !== 'super_admin') {
-                await firebaseAuth.signOut();
-                throw new Error('No tienes permisos de administrador');
-            }
+            // Validate role access (Relaxed: Allow super_admin to login as admin, and trust DB role)
+            // We prioritize the DB role over the requested role to prevent lockout
             if (expectedRole === 'super_admin' && profile.role !== 'super_admin') {
-                await firebaseAuth.signOut();
-                throw new Error('No tienes permisos de Super Admin');
+                console.warn('Usuario intentó entrar como Super Admin pero es:', profile.role);
+                // Don't throw, just let them in with their actual role
             }
 
             // Create session
