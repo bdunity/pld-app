@@ -5,7 +5,7 @@ service cloud.firestore {
     // ╔══════════════════════════════════════════════════════════════════════════╗
     // ║  PLD BDU - FIRESTORE SECURITY RULES                                       ║
     // ║  Multi-Tenant AML Compliance SaaS                                         ║
-    // ║  Version: 2.0.0 | Last Updated: 2026-01-25                                ║
+    // ║  Version: 2.1.0 | Last Updated: 2026-01-25                                ║
     // ╚══════════════════════════════════════════════════════════════════════════╝
 
     // ============================================================================
@@ -34,9 +34,14 @@ service cloud.firestore {
       return request.auth.token.workspaces;
     }
 
-    // Check if user is SUPER_ADMIN (platform owner)
+    // Check if user is SUPER_ADMIN (platform owner) - Enhanced with DB fallback
     function isSuperAdmin() {
-      return isAuthenticated() && getUserRole() == 'SUPER_ADMIN';
+      return isAuthenticated() && (
+        getUserRole() == 'SUPER_ADMIN' || 
+        getUserRole() == 'super_admin' || // Handle lowercase case
+        (exists(/databases/$(database)/documents/users/$(request.auth.token.email)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.role == 'super_admin')
+      );
     }
 
     // Check if user is COMPANY_ADMIN (tenant owner)
@@ -245,10 +250,11 @@ service cloud.firestore {
     match /users/{userId} {
       
       // READ: 
-      // - Own profile: Always allowed
+      // - Own profile (by UID or Email): Always allowed
       // - Other users: Only if SUPER_ADMIN or COMPANY_ADMIN of same tenant
       allow read: if isAuthenticated() && (
         request.auth.uid == userId ||
+        request.auth.token.email == userId || // Allow access by Email ID
         isSuperAdmin() ||
         (isCompanyAdmin() && resource.data.tenant_id == getUserTenantId())
       );

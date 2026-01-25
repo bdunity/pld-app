@@ -295,7 +295,7 @@ body::before {
 }
 
 /* Responsive Fixes */
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
     .layout-sidebar {
         display: block !important;
         padding: 0;
