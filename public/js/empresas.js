@@ -9,12 +9,15 @@ const EmpresasService = {
     /**
      * Empresa por defecto (10bet Casino)
      */
+    /**
+     * Empresa por defecto (Generic Template)
+     */
     DEFAULT_EMPRESA: {
-        id: 'empresa_10bet',
-        rfc: 'SPE091216B35',
-        razonSocial: 'Sao Paulo Entretenimiento S.A. de C.V.',
-        nombreComercial: '10bet Casino',
-        giros: ['juegos_sorteos'],
+        id: 'empresa_demo',
+        rfc: 'XAXX010101000',
+        razonSocial: 'Mi Primera Empresa S.A. de C.V.',
+        nombreComercial: 'Espacio de Trabajo Demo',
+        giros: ['actividad_generica'],
         domicilio: {
             calle: '',
             colonia: '',
@@ -23,7 +26,7 @@ const EmpresasService = {
             estado: ''
         },
         contacto: {
-            nombre: '',
+            nombre: 'Admin Inicial',
             email: '',
             telefono: ''
         },
@@ -40,7 +43,7 @@ const EmpresasService = {
         // Si no hay empresas, crear la default
         if (empresas.length === 0) {
             await this.create(this.DEFAULT_EMPRESA);
-            console.log('🏢 Empresa por defecto creada: 10bet Casino');
+            console.log('🏢 Empresa por defecto creada: Demo Workspace');
         }
 
         // Inicializar catálogo de giros si está vacío
@@ -121,7 +124,7 @@ const EmpresasService = {
      * Eliminar empresa
      */
     async delete(id) {
-        if (id === 'empresa_10bet') {
+        if (id === 'empresa_demo' || id === 'empresa_10bet') {
             throw new Error('No se puede eliminar la empresa por defecto');
         }
         await dbService.delete('empresas', id);

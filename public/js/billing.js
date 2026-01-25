@@ -359,8 +359,23 @@ const BillingService = {
      * Check if subscription is active
      */
     isActive() {
-        return this.currentSubscription &&
-            ['active', 'trialing'].includes(this.currentSubscription.status);
+        if (!this.currentSubscription) return false;
+
+        // Free plan never expires
+        if (this.currentSubscription.planId === 'plan_free') return true;
+
+        const now = new Date();
+        const endDate = new Date(this.currentSubscription.currentPeriodEnd);
+
+        // Check status AND date
+        const isValidStatus = ['active', 'trialing'].includes(this.currentSubscription.status);
+        const isNotExpired = endDate > now;
+
+        if (!isNotExpired) {
+            console.warn('⚠️ Subscription expired on:', endDate);
+        }
+
+        return isValidStatus && isNotExpired;
     },
 
     updateProgressBar(barId, usedId, maxId, used, max) {
