@@ -22,6 +22,7 @@ const { create } = require('xmlbuilder2');
 
 const db = admin.firestore();
 const storage = admin.storage();
+const { checkQuotaAvailability, consumeQuota } = require('./quota-gatekeeper');
 
 // ============================================================================
 // CONFIGURACIÓN DE SCHEMAS XSD POR ACTIVIDAD
@@ -189,6 +190,15 @@ exports.generateXMLBatch = functions
             console.log(`  - Registros a procesar: ${records.length}`);
 
             // -----------------------------------------------------------------------
+            // VERIFICAR CUOTA DE XMLs
+            // -----------------------------------------------------------------------
+            const quotaCheck = await checkQuotaAvailability(tenantId, 'GENERATE_XML', 1);
+
+            if (!quotaCheck.allowed) {
+                throw new functions.https.HttpsError('resource-exhausted', quotaCheck.message);
+            }
+
+            // -----------------------------------------------------------------------
             // Construir XML
             // -----------------------------------------------------------------------
             const xmlContent = buildXML(activityType, schema, tenantData, workspaceData, records, {
@@ -263,6 +273,11 @@ exports.generateXMLBatch = functions
                 generated_at: admin.firestore.FieldValue.serverTimestamp(),
                 download_url: downloadUrl,
             });
+
+            // -----------------------------------------------------------------------
+            // CONSUMIR CUOTA
+            // -----------------------------------------------------------------------
+            await consumeQuota(tenantId, 'GENERATE_XML', 1);
 
             console.log(`[generateXMLBatch] ✅ Completado`);
 

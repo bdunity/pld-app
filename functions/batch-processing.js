@@ -26,6 +26,7 @@ const { Readable } = require('stream');
 
 const db = admin.firestore();
 const storage = admin.storage();
+const { checkQuotaAvailability, consumeQuota } = require('./quota-gatekeeper');
 
 // ============================================================================
 // CONFIGURACIÓN
@@ -196,6 +197,16 @@ exports.onFileUploaded = functions
                 'progress.total': records.length,
                 'statistics.total_rows': records.length,
             });
+
+            // -----------------------------------------------------------------------
+            // VERIFICAR CUOTA DE REGISTROS
+            // -----------------------------------------------------------------------
+            const quotaCheck = await checkQuotaAvailability(tenantId, 'UPLOAD_RECORDS', records.length);
+
+            if (!quotaCheck.allowed) {
+                console.warn(`[onFileUploaded] Cuota excedida para tenant ${tenantId}: ${quotaCheck.message}`);
+                throw new Error(quotaCheck.message);
+            }
 
             // -----------------------------------------------------------------------
             // Verificar si necesita particionamiento
@@ -419,6 +430,13 @@ async function processRecords(jobRef, tenantId, workspaceId, records) {
             'statistics.total_records': admin.firestore.FieldValue.increment(stats.valid),
             'statistics.last_activity': admin.firestore.FieldValue.serverTimestamp(),
         });
+
+    // -------------------------------------------------------------------------
+    // FASE 4: Consumir Cuota (Solo registros válidos procesados)
+    // -------------------------------------------------------------------------
+    if (stats.valid > 0) {
+        await consumeQuota(tenantId, 'UPLOAD_RECORDS', stats.valid);
+    }
 
     console.log(`[processRecords] ✅ Completado en ${processingTime}ms`);
 }

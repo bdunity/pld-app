@@ -7,6 +7,7 @@
  */
 
 const admin = require('firebase-admin');
+const functions = require('firebase-functions');
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
@@ -66,6 +67,16 @@ const subscriptionFunctions = require('./subscriptions');
 exports.checkUsageLimits = subscriptionFunctions.checkUsageLimits;
 exports.incrementUsage = subscriptionFunctions.incrementUsage;
 exports.getSubscriptionStatus = subscriptionFunctions.getSubscriptionStatus;
+// Export gatekeeper for frontend checks
+const quotaGatekeeper = require('./quota-gatekeeper');
+exports.checkQuotaAvailability = functions.https.onCall(async (data, context) => {
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Auth required');
+    return quotaGatekeeper.checkQuotaAvailability(
+        context.auth.token.tenantId,
+        data.actionType,
+        data.amount || 1
+    );
+});
 
 // Telemetry & Usage Tracking Functions
 const telemetryFunctions = require('./telemetry');
