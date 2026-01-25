@@ -44,6 +44,13 @@ const AuthService = {
                 // Get user profile from Firestore
                 const profile = await this.getUserProfile(user.email);
                 if (profile) {
+                    // Check for existing session to preserve impersonation state
+                    let existingSession = {};
+                    try {
+                        const stored = sessionStorage.getItem(this.SESSION_KEY);
+                        if (stored) existingSession = JSON.parse(stored);
+                    } catch (e) { }
+
                     this.currentUser = {
                         email: user.email,
                         uid: user.uid,
@@ -51,6 +58,14 @@ const AuthService = {
                         empresaId: profile.empresaId,
                         emailVerified: user.emailVerified
                     };
+
+                    // Preserve impersonation context if user is super_admin
+                    if (profile.role === 'super_admin' && existingSession.isImpersonating) {
+                        this.currentUser.isImpersonating = true;
+                        this.currentUser.viewingEmpresaId = existingSession.viewingEmpresaId;
+                        this.currentUser.viewingEmpresaName = existingSession.viewingEmpresaName;
+                    }
+
                     sessionStorage.setItem(this.SESSION_KEY, JSON.stringify(this.currentUser));
                 }
             } else {
