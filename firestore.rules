@@ -311,14 +311,9 @@ service cloud.firestore {
     // 5. GLOBAL CONFIG COLLECTION (Read-Only Catalogs)
     // Path: /global_config/{configId}
     // Policy: READ-ONLY for all authenticated users.
-    //         Only SUPER_ADMIN can update (SAT thresholds, UMA values, etc.)
     // ============================================================================
     match /global_config/{configId} {
-      
-      // READ: Any authenticated user (needed for thresholds, templates)
       allow read: if isAuthenticated();
-      
-      // WRITE: Only SUPER_ADMIN can modify global configuration
       allow write: if isSuperAdmin();
     }
 
@@ -345,13 +340,10 @@ service cloud.firestore {
     // ============================================================================
     // 7. EMPRESAS COLLECTION (Legacy - For Migration)
     // Path: /empresas/{empresaId}
-    // Policy: Map to new tenant structure during transition
+    // Policy: Allow read for all authenticated users to enable dashboard boot
     // ============================================================================
     match /empresas/{empresaId} {
-      allow read: if isSuperAdmin() || (
-        isAuthenticated() && 
-        (getUserTenantId() == empresaId || resource.data.id == getUserTenantId())
-      );
+      allow read: if isAuthenticated();
       allow write: if isSuperAdmin() || (
         isCompanyAdmin() && getUserTenantId() == empresaId
       );
