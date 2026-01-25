@@ -151,10 +151,10 @@ function setupUIForRole(user) {
     // All available menu items
     const menuItems = {
         // Platform modules (Super Admin only)
-        empresas: { icon: '🏢', label: 'Empresas' },
-        dashboard: { icon: '📊', label: 'Dashboard Global' },
-        billing: { icon: '💳', label: 'Facturación' },
-        ai_config: { icon: '🤖', label: 'Configuración IA' },
+        empresas: { icon: '🏢', label: 'Mis Empresas' }, // Renamed for clarity
+        dashboard: { icon: '📊', label: 'Monitor Global' },
+        billing: { icon: '💳', label: 'Suscripciones' },
+        ai_config: { icon: '🤖', label: 'IA Central' },
 
         // Tenant modules (per-company)
         config: { icon: '⚙️', label: 'Configuración' },
@@ -163,25 +163,20 @@ function setupUIForRole(user) {
         monitoring: { icon: '📈', label: 'Monitoreo 6 Meses' },
         kyc: { icon: '🔍', label: 'Padrón KYC' },
         compliance: { icon: '✅', label: 'Cumplimiento' },
-        export: { icon: '📤', label: 'Exportar XML' },
-        reports: { icon: '📋', label: 'Reportes' },
+        export: { icon: '📤', label: 'Exportar XML CNBV' },
+        reports: { icon: '📋', label: 'Reportes PLD' },
         audit: { icon: '🛡️', label: 'Bitácora' },
-        soporte: { icon: '🎫', label: 'Soporte' }
+        soporte: { icon: '🎫', label: 'Ayuda y Soporte' }
     };
 
     // Build sections based on role and context
     let sections = [];
 
     if (isSuperAdmin) {
-        // PLATFORM section - always visible for super_admin
-        sections.push({
-            title: 'PLATAFORMA',
-            items: ['empresas', 'dashboard', 'billing', 'ai_config'],
-            requiresTab: true
-        });
-
-        // If viewing a specific company, show its modules
         if (isViewingCompany) {
+            // === IMPERSONATION MODE ===
+            // Show Company Context and Operational Modules FIRST
+
             sections.push({
                 type: 'context',
                 empresaId: session.viewingEmpresaId,
@@ -189,38 +184,54 @@ function setupUIForRole(user) {
             });
 
             sections.push({
-                title: 'EMPRESA ACTIVA',
+                title: 'OPERACIÓN DE EMPRESA',
                 items: ['config', 'upload', 'operations', 'monitoring', 'kyc', 'compliance', 'export', 'reports', 'audit'],
-                requiresTab: false // Super admin can access ALL modules
+                requiresTab: false, // Bypass role tab check (Super Admin has all access)
+                forceAccess: true   // Explicit flag to force showing these items
+            });
+
+            sections.push({
+                title: 'ADMINISTRACIÓN GLOBAL',
+                items: ['empresas', 'dashboard', 'billing'],
+                requiresTab: true
+            });
+
+        } else {
+            // === GLOBAL PLATFORM MODE ===
+            sections.push({
+                title: 'PLATAFORMA SAAS',
+                items: ['empresas', 'dashboard', 'billing', 'ai_config'],
+                requiresTab: true
+            });
+
+            sections.push({
+                title: 'HERRAMIENTAS',
+                items: ['soporte'],
+                requiresTab: true
             });
         }
 
-        sections.push({
-            title: 'AYUDA',
-            items: ['soporte'],
-            requiresTab: true
-        });
-
     } else if (isAdmin) {
-        // Admin sees their company's modules
+        // === TENANT ADMIN MODE ===
+        // Clean layout for SaaS customers
         sections.push({
-            title: 'MI EMPRESA',
+            title: 'GESTIÓN',
             items: ['config'],
             requiresTab: true
         });
         sections.push({
-            title: 'OPERACIONES PLD',
+            title: 'CUMPLIMIENTO PLD',
             items: ['upload', 'operations', 'monitoring', 'kyc', 'compliance', 'export', 'reports', 'audit'],
             requiresTab: true
         });
         sections.push({
-            title: 'AYUDA',
+            title: 'SOPORTE',
             items: ['soporte'],
             requiresTab: true
         });
 
     } else {
-        // Regular user or visitor - simple tab list
+        // === REGULAR USER / VISITOR ===
         sections.push({
             title: 'MÓDULOS',
             items: role.tabs,
@@ -238,13 +249,15 @@ function setupUIForRole(user) {
             const empresaName = section.empresaName || section.empresaId;
             sidebarMenu.innerHTML += `
                 <li class="sidebar-context-indicator">
-                    <div class="context-badge">
-                        <span class="context-icon">🏢</span>
-                        <div class="context-info">
-                            <span class="context-label">Viendo empresa:</span>
-                            <span class="context-empresa">${empresaName}</span>
+                    <div class="context-badge active-context">
+                        <div class="context-details">
+                            <span class="context-label">ESPACIO DE TRABAJO</span>
+                            <span class="context-empresa" title="${empresaName}">${empresaName}</span>
+                            <span class="context-role">Modo Super Admin</span>
                         </div>
-                        <button class="btn-exit-context" onclick="exitImpersonation()" title="Salir de esta empresa">✕</button>
+                        <button class="btn-exit-context" onclick="exitImpersonation()" title="Volver al Dashboard Global">
+                            ➜ Salir
+                        </button>
                     </div>
                 </li>
             `;
@@ -260,12 +273,16 @@ function setupUIForRole(user) {
             `;
         }
 
-        // Section items - super admin viewing company bypasses tab check
+        // Section items
         section.items.forEach(tabId => {
             const item = menuItems[tabId];
-            const hasAccess = !section.requiresTab || role.tabs.includes(tabId);
 
-            if (item && hasAccess) {
+            // Access check:
+            // 1. Is the item defined?
+            // 2. FORCE ACCESS (for Super Admin in Impersonation) OR Role Check
+            const hasAccess = item && (section.forceAccess || !section.requiresTab || role.tabs.includes(tabId));
+
+            if (hasAccess) {
                 sidebarMenu.innerHTML += `
                     <li class="sidebar-item">
                         <a href="#" class="sidebar-link" data-tab="${tabId}" onclick="switchTab('${tabId}'); return false;">
