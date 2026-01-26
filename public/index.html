@@ -740,333 +740,336 @@
                             <button class="btn btn-primary" onclick="app.guardarConfig()">💾 Guardar
                                 Configuración</button>
 
+                            <!-- 
                             <h3 class="mt-2" style="margin-top:20px; border-top:1px solid #eee; padding-top:20px;">📦
-                                Respaldo
-                                de Base de Datos</h3>
-                            <p>Descarga un respaldo completo (JSON) o restaura datos previos.</p>
+                                Respaldo de Base de Datos (Legacy)</h3>
+                            <p>Esta función solo está disponible en la versión Local-First. En SaaS, los respaldos son automáticos en la nube.</p>
+                             -->
+                        </div> <!-- End Outer Section -->
+                    </div> <!-- End tab-config -->
+
+                    <!-- Carga -->
+                    <div id="tab-upload" class="tab-content">
+                        <div class="section">
+                            <div class="section-header">
+                                <h2>📁 Carga de Archivo Mensual</h2>
+                            </div>
+                            <div class="file-upload-area" id="dropExcel">
+                                <div class="upload-icon">📊</div>
+                                <p>Arrastra tu archivo Excel mensual aquí</p>
+                                <input type="file" id="fileExcel" accept=".xlsx,.xls">
+                                <div id="infoExcel" class="file-info hidden"></div>
+                            </div>
+                            <div class="loading" id="loadingProcess">
+                                <div class="spinner"></div>
+                                <p>Procesando y Guardando en Base de Datos...</p>
+                            </div>
                             <div class="btn-group">
-                                <button class="btn btn-info" onclick="app.exportarBackup()">⬇️ Exportar
-                                    Respaldo</button>
-                                <button class="btn btn-warning"
-                                    onclick="document.getElementById('fileBackup').click()">⬆️
-                                    Restaurar Respaldo</button>
-                                <input type="file" id="fileBackup" accept=".json" class="hidden"
-                                    onchange="app.importarBackup(this)">
+                                <button class="btn btn-success" onclick="app.procesarArchivo()">🔄 Procesar e Insertar
+                                    en
+                                    DB</button>
                             </div>
                         </div>
-                    </div> <!-- End Inner Section -->
-                </div> <!-- End Outer Section -->
-            </div> <!-- End tab-config -->
-
-            <!-- Carga -->
-            <div id="tab-upload" class="tab-content">
-                <div class="section">
-                    <div class="section-header">
-                        <h2>📁 Carga de Archivo Mensual</h2>
-                    </div>
-                    <div class="file-upload-area" id="dropExcel">
-                        <div class="upload-icon">📊</div>
-                        <p>Arrastra tu archivo Excel mensual aquí</p>
-                        <input type="file" id="fileExcel" accept=".xlsx,.xls">
-                        <div id="infoExcel" class="file-info hidden"></div>
-                    </div>
-                    <div class="loading" id="loadingProcess">
-                        <div class="spinner"></div>
-                        <p>Procesando y Guardando en Base de Datos...</p>
-                    </div>
-                    <div class="btn-group">
-                        <button class="btn btn-success" onclick="app.procesarArchivo()">🔄 Procesar e Insertar
-                            en
-                            DB</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Operaciones -->
-            <div id="tab-operations" class="tab-content">
-                <div class="section">
-                    <div class="section-header">
-                        <h2>📊 Operaciones por Periodo</h2>
-                        <select id="periodoSelector" onchange="app.cargarOperacionesPeriodo()" style="padding: 5px;">
-                            <option value="">Selecciona Periodo...</option>
-                        </select>
                     </div>
 
-                    <div class="chart-container">
-                        <canvas id="dashboardChart"></canvas>
-                    </div>
+                    <!-- Operaciones -->
+                    <div id="tab-operations" class="tab-content">
+                        <div class="section">
+                            <div class="section-header">
+                                <h2>📊 Operaciones por Periodo</h2>
+                                <select id="periodoSelector" onchange="app.cargarOperacionesPeriodo()"
+                                    style="padding: 5px;">
+                                    <option value="">Selecciona Periodo...</option>
+                                </select>
+                            </div>
 
-                    <div class="stats-grid">
-                        <div class="stat-card card-depositos" onclick="app.filterOperations('deposito')">
-                            <h3 id="opTotalDeps">0</h3>
-                            <p>Depósitos</p>
-                            <small>Click para filtrar</small>
-                        </div>
-                        <div class="stat-card card-retiros" onclick="app.filterOperations('retiro')">
-                            <h3 id="opTotalRets">0</h3>
-                            <p>Retiros</p>
-                            <small>Click para filtrar</small>
-                        </div>
-                        <div class="stat-card card-avisos" onclick="app.filterOperations('aviso')">
-                            <h3 id="opTotalAvisos">0</h3>
-                            <p>Avisos (&ge; 645 UMA)</p>
-                            <small>Requiere Reporte</small>
-                        </div>
-                        <div class="stat-card card-monitoreos" onclick="app.filterOperations('monitoreo')">
-                            <h3 id="opTotalMonitoreos">0</h3>
-                            <p>Monitoreos (&ge; 325 UMA)</p>
-                            <small>Seguimiento</small>
-                        </div>
-                    </div>
-                    <div style="text-align: right; margin-bottom: 10px;">
-                        <button class="btn btn-secondary" onclick="app.filterOperations('all')"
-                            style="font-size: 0.8em;">Limpiar Filtros</button>
-                    </div>
-                    <!-- Toolbar de Busqueda -->
-                    <div class="search-toolbar"
-                        style="display:flex; gap:10px; margin-bottom:15px; background:white; padding:15px; border-radius:12px; border:1px solid #e2e8f0; align-items:center;">
-                        <div style="position:relative; flex:1; display:flex; gap:5px;">
-                            <input type="text" id="searchOps" placeholder="Buscar Usuario, ID o RFC..."
-                                style="flex:1; padding:10px; border:1px solid #cbd5e1; border-radius:8px;">
-                            <button class="btn btn-primary" onclick="app.applyFilters()" style="padding: 10px 20px;">🔍
-                                Buscar</button>
-                        </div>
-                        <select id="filterStatus" onchange="app.applyFilters()"
-                            style="padding:10px; border:1px solid #cbd5e1; border-radius:8px; background:white;">
-                            <option value="">Todos los Estados</option>
-                            <option value="normal">🟢 Normal</option>
-                            <option value="monitoreo">🟠 Monitoreo</option>
-                            <option value="aviso">🔴 Aviso</option>
-                        </select>
-                        <button class="btn btn-success" onclick="app.exportToExcel()"
-                            style="padding: 10px 15px; margin-left: auto;">📊 Exportar Excel</button>
-                    </div>
+                            <div class="chart-container">
+                                <canvas id="dashboardChart"></canvas>
+                            </div>
 
-                    <!-- Tablas simplificadas por espacio -->
-                    <h3>Depósitos</h3>
-                    <div class="table-container">
-                        <table id="tableDepositos">
-                            <thead>
-                                <tr>
-                                    <th>Usuario</th>
-                                    <th>Nombre</th>
-                                    <th>Monto Mensual</th>
-                                    <th>Monto Total</th>
-                                    <th>Veces Umbral</th>
-                                    <th>UMA</th>
-                                    <th>Email</th>
-                                    <th>Teléfono</th>
-                                    <th>Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                        <div class="pagination" id="pagDepositos"></div>
-                    </div>
-                    <h3>Retiros</h3>
-                    <div class="table-container">
-                        <table id="tableRetiros">
-                            <thead>
-                                <tr>
-                                    <th>Usuario</th>
-                                    <th>Nombre</th>
-                                    <th>Monto Mensual</th>
-                                    <th>Monto Total</th>
-                                    <th>Veces Umbral</th>
-                                    <th>UMA</th>
-                                    <th>Email</th>
-                                    <th>Teléfono</th>
-                                    <th>Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                        <div class="pagination" id="pagRetiros"></div>
-                    </div>
-                </div>
-            </div>
+                            <div class="stats-grid">
+                                <div class="stat-card card-depositos" onclick="app.filterOperations('deposito')">
+                                    <h3 id="opTotalDeps">0</h3>
+                                    <p>Depósitos</p>
+                                    <small>Click para filtrar</small>
+                                </div>
+                                <div class="stat-card card-retiros" onclick="app.filterOperations('retiro')">
+                                    <h3 id="opTotalRets">0</h3>
+                                    <p>Retiros</p>
+                                    <small>Click para filtrar</small>
+                                </div>
+                                <div class="stat-card card-avisos" onclick="app.filterOperations('aviso')">
+                                    <h3 id="opTotalAvisos">0</h3>
+                                    <p>Avisos (&ge; 645 UMA)</p>
+                                    <small>Requiere Reporte</small>
+                                </div>
+                                <div class="stat-card card-monitoreos" onclick="app.filterOperations('monitoreo')">
+                                    <h3 id="opTotalMonitoreos">0</h3>
+                                    <p>Monitoreos (&ge; 325 UMA)</p>
+                                    <small>Seguimiento</small>
+                                </div>
+                            </div>
+                            <div style="text-align: right; margin-bottom: 10px;">
+                                <button class="btn btn-secondary" onclick="app.filterOperations('all')"
+                                    style="font-size: 0.8em;">Limpiar Filtros</button>
+                            </div>
+                            <!-- Toolbar de Busqueda -->
+                            <div class="search-toolbar"
+                                style="display:flex; gap:10px; margin-bottom:15px; background:white; padding:15px; border-radius:12px; border:1px solid #e2e8f0; align-items:center;">
+                                <div style="position:relative; flex:1; display:flex; gap:5px;">
+                                    <input type="text" id="searchOps" placeholder="Buscar Usuario, ID o RFC..."
+                                        style="flex:1; padding:10px; border:1px solid #cbd5e1; border-radius:8px;">
+                                    <button class="btn btn-primary" onclick="app.applyFilters()"
+                                        style="padding: 10px 20px;">🔍
+                                        Buscar</button>
+                                </div>
+                                <select id="filterStatus" onchange="app.applyFilters()"
+                                    style="padding:10px; border:1px solid #cbd5e1; border-radius:8px; background:white;">
+                                    <option value="">Todos los Estados</option>
+                                    <option value="normal">🟢 Normal</option>
+                                    <option value="monitoreo">🟠 Monitoreo</option>
+                                    <option value="aviso">🔴 Aviso</option>
+                                </select>
+                                <button class="btn btn-success" onclick="app.exportToExcel()"
+                                    style="padding: 10px 15px; margin-left: auto;">📊 Exportar Excel</button>
+                            </div>
 
-            <!-- Monitoreo -->
-            <div id="tab-monitoring" class="tab-content">
-                <div class="section">
-                    <div class="section-header">
-                        <h2>📈 Monitoreo 6 Meses</h2>
-                    </div>
-                    <p>Calculado consultando la base de datos histórica.</p>
-                    <div class="btn-group">
-                        <button class="btn btn-info" onclick="app.calcularMonitoreo()">🔄 Calcular
-                            Ahora</button>
-                    </div>
-                    <div class="table-container">
-                        <table id="tableMonitoreo">
-                            <thead>
-                                <tr>
-                                    <th>Usuario</th>
-                                    <th>Total Depósitos</th>
-                                    <th>Total Retiros</th>
-                                    <th>Acumulado UMA</th>
-                                    <th>Progreso (vs 645 UMA)</th>
-                                    <th>Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- KYC -->
-            <div id="tab-kyc" class="tab-content">
-                <div class="section">
-                    <div class="section-header">
-                        <h2>👥 Padrón KYC (DB)</h2>
-                        <span class="badge" id="totalKYC">0 clientes</span>
-                    </div>
-
-                    <!-- DASHBOARD KYC -->
-                    <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:20px; margin-bottom:30px;">
-                        <div class="card"
-                            style="background:white; padding:15px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
-                            <h4 style="margin-bottom:10px; font-size:0.9em; color:#64748b;">📍 Distribución Geográfica
-                                (Estados)</h4>
-                            <div style="height:200px;"><canvas id="chartStates"></canvas></div>
-                        </div>
-                        <div class="card"
-                            style="background:white; padding:15px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
-                            <h4 style="margin-bottom:10px; font-size:0.9em; color:#64748b;">⚧️ Distribución por Sexo
-                            </h4>
-                            <div style="height:200px; display:flex; justify-content:center;"><canvas
-                                    id="chartSex"></canvas></div>
-                        </div>
-                        <div class="card"
-                            style="background:white; padding:15px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
-                            <h4 style="margin-bottom:10px; font-size:0.9em; color:#64748b;">🎂 Rango de Edades</h4>
-                            <div style="height:200px;"><canvas id="chartAges"></canvas></div>
+                            <!-- Tablas simplificadas por espacio -->
+                            <h3>Depósitos</h3>
+                            <div class="table-container">
+                                <table id="tableDepositos">
+                                    <thead>
+                                        <tr>
+                                            <th>Usuario</th>
+                                            <th>Nombre</th>
+                                            <th>Monto Mensual</th>
+                                            <th>Monto Total</th>
+                                            <th>Veces Umbral</th>
+                                            <th>UMA</th>
+                                            <th>Email</th>
+                                            <th>Teléfono</th>
+                                            <th>Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                                <div class="pagination" id="pagDepositos"></div>
+                            </div>
+                            <h3>Retiros</h3>
+                            <div class="table-container">
+                                <table id="tableRetiros">
+                                    <thead>
+                                        <tr>
+                                            <th>Usuario</th>
+                                            <th>Nombre</th>
+                                            <th>Monto Mensual</th>
+                                            <th>Monto Total</th>
+                                            <th>Veces Umbral</th>
+                                            <th>UMA</th>
+                                            <th>Email</th>
+                                            <th>Teléfono</th>
+                                            <th>Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                                <div class="pagination" id="pagRetiros"></div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- DASHBOARD RIESGO ENR 2023 -->
-                    <h3 style="margin-bottom:15px; font-size:1.1em; color:#1e293b;">⚡ Evaluación Nacional de Riesgos
-                        2023 (Por Entidad)</h3>
-
-                    <!-- Row 1: Charts -->
-                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:15px; margin-bottom:20px;">
-                        <div class="card"
-                            style="background:white; padding:15px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
-                            <h4 style="margin-bottom:10px; font-size:0.9em; color:#64748b;">Nivel de Riesgo Global</h4>
-                            <div style="height:150px; display:flex; justify-content:center;"><canvas
-                                    id="chartRiskGlobal"></canvas></div>
+                    <!-- Monitoreo -->
+                    <div id="tab-monitoring" class="tab-content">
+                        <div class="section">
+                            <div class="section-header">
+                                <h2>📈 Monitoreo 6 Meses</h2>
+                            </div>
+                            <p>Calculado consultando la base de datos histórica.</p>
+                            <div class="btn-group">
+                                <button class="btn btn-info" onclick="app.calcularMonitoreo()">🔄 Calcular
+                                    Ahora</button>
+                            </div>
+                            <div class="table-container">
+                                <table id="tableMonitoreo">
+                                    <thead>
+                                        <tr>
+                                            <th>Usuario</th>
+                                            <th>Total Depósitos</th>
+                                            <th>Total Retiros</th>
+                                            <th>Acumulado UMA</th>
+                                            <th>Progreso (vs 645 UMA)</th>
+                                            <th>Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
                         </div>
-                        <div class="card"
-                            style="background:white; padding:15px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
-                            <h4 style="margin-bottom:10px; font-size:0.9em; color:#64748b;">⚠️ Zona ALTO Riesgo</h4>
-                            <div style="height:150px;"><canvas id="chartRiskHigh"></canvas></div>
+                    </div>
+
+                    <!-- KYC -->
+                    <div id="tab-kyc" class="tab-content">
+                        <div class="section">
+                            <div class="section-header">
+                                <h2>👥 Padrón KYC (DB)</h2>
+                                <span class="badge" id="totalKYC">0 clientes</span>
+                            </div>
+
+                            <!-- DASHBOARD KYC -->
+                            <div
+                                style="display:grid; grid-template-columns: repeat(3, 1fr); gap:20px; margin-bottom:30px;">
+                                <div class="card"
+                                    style="background:white; padding:15px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
+                                    <h4 style="margin-bottom:10px; font-size:0.9em; color:#64748b;">📍 Distribución
+                                        Geográfica
+                                        (Estados)</h4>
+                                    <div style="height:200px;"><canvas id="chartStates"></canvas></div>
+                                </div>
+                                <div class="card"
+                                    style="background:white; padding:15px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
+                                    <h4 style="margin-bottom:10px; font-size:0.9em; color:#64748b;">⚧️ Distribución por
+                                        Sexo
+                                    </h4>
+                                    <div style="height:200px; display:flex; justify-content:center;"><canvas
+                                            id="chartSex"></canvas></div>
+                                </div>
+                                <div class="card"
+                                    style="background:white; padding:15px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
+                                    <h4 style="margin-bottom:10px; font-size:0.9em; color:#64748b;">🎂 Rango de Edades
+                                    </h4>
+                                    <div style="height:200px;"><canvas id="chartAges"></canvas></div>
+                                </div>
+                            </div>
+
+                            <!-- DASHBOARD RIESGO ENR 2023 -->
+                            <h3 style="margin-bottom:15px; font-size:1.1em; color:#1e293b;">⚡ Evaluación Nacional de
+                                Riesgos
+                                2023 (Por Entidad)</h3>
+
+                            <!-- Row 1: Charts -->
+                            <div
+                                style="display:grid; grid-template-columns: repeat(4, 1fr); gap:15px; margin-bottom:20px;">
+                                <div class="card"
+                                    style="background:white; padding:15px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
+                                    <h4 style="margin-bottom:10px; font-size:0.9em; color:#64748b;">Nivel de Riesgo
+                                        Global</h4>
+                                    <div style="height:150px; display:flex; justify-content:center;"><canvas
+                                            id="chartRiskGlobal"></canvas></div>
+                                </div>
+                                <div class="card"
+                                    style="background:white; padding:15px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
+                                    <h4 style="margin-bottom:10px; font-size:0.9em; color:#64748b;">⚠️ Zona ALTO Riesgo
+                                    </h4>
+                                    <div style="height:150px;"><canvas id="chartRiskHigh"></canvas></div>
+                                </div>
+                                <div class="card"
+                                    style="background:white; padding:15px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
+                                    <h4 style="margin-bottom:10px; font-size:0.9em; color:#64748b;">⚠️ Zona MEDIO Riesgo
+                                    </h4>
+                                    <div style="height:150px;"><canvas id="chartRiskMed"></canvas></div>
+                                </div>
+                                <div class="card"
+                                    style="background:white; padding:15px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
+                                    <h4 style="margin-bottom:10px; font-size:0.9em; color:#64748b;">✅ Zona BAJO Riesgo
+                                    </h4>
+                                    <div style="height:150px;"><canvas id="chartRiskLow"></canvas></div>
+                                </div>
+                            </div>
+
+                            <!-- Row 2: Map -->
+                            <div class="card"
+                                style="background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 2px 5px rgba(0,0,0,0.05); margin-bottom:30px;">
+                                <h4 style="margin-bottom:15px; font-size:0.9em; color:#64748b;">🗺️ Mapa de Riesgo PLD
+                                    (Usuarios
+                                    por Entidad)</h4>
+                                <div id="regions_div" style="width: 100%; height: 500px;"></div>
+                            </div>
+
+                            <div class="search-box"><input type="text" id="searchKYC" placeholder="Buscar..."
+                                    onkeyup="ui.filtrarTabla('tableKYC', this.value)"></div>
+                            <div class="table-container">
+                                <table id="tableKYC">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Nombre</th>
+                                            <th style="min-width:120px;">Estado</th>
+                                            <th>Edad/Sexo</th>
+                                            <th>Actividad Económica</th>
+                                            <th>RFC / CURP</th>
+                                            <th>Dirección</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                                <div class="pagination" id="pagKYC"></div>
+                            </div>
+                            <button class="btn btn-warning" onclick="app.eliminarTodoKYC()">🗑️ Borrar Todo el
+                                Padrón</button>
                         </div>
-                        <div class="card"
-                            style="background:white; padding:15px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
-                            <h4 style="margin-bottom:10px; font-size:0.9em; color:#64748b;">⚠️ Zona MEDIO Riesgo</h4>
-                            <div style="height:150px;"><canvas id="chartRiskMed"></canvas></div>
+                    </div>
+
+                    <!-- Exportar -->
+                    <div id="tab-export" class="tab-content">
+                        <div class="section">
+                            <div class="section-header">
+                                <h2>out Generar XML UIF</h2>
+                            </div>
+                            <p>Genera los avisos basados en el periodo seleccionado en la pestaña "Operaciones".</p>
+                            <div class="btn-group">
+                                <button class="btn btn-success" onclick="app.generarXML()">📄 Descargar XML</button>
+                                <button class="btn btn-primary" onclick="app.generarPDF()">📋 Descargar PDF
+                                    Validación</button>
+                            </div>
                         </div>
-                        <div class="card"
-                            style="background:white; padding:15px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
-                            <h4 style="margin-bottom:10px; font-size:0.9em; color:#64748b;">✅ Zona BAJO Riesgo</h4>
-                            <div style="height:150px;"><canvas id="chartRiskLow"></canvas></div>
+                    </div>
+
+                    <!-- Banco de Reportes -->
+                    <div id="tab-reports" class="tab-content">
+                        <div class="section">
+                            <div class="section-header">
+                                <h2>📋 Banco de Reportes Generados</h2>
+                            </div>
+                            <div class="data-table-container">
+                                <table id="tableReportes">
+                                    <thead>
+                                        <tr>
+                                            <th>Fecha Generación</th>
+                                            <th>Tipo Aviso</th>
+                                            <th>Archivo</th>
+                                            <th>Hash (Simulado)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Row 2: Map -->
-                    <div class="card"
-                        style="background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 2px 5px rgba(0,0,0,0.05); margin-bottom:30px;">
-                        <h4 style="margin-bottom:15px; font-size:0.9em; color:#64748b;">🗺️ Mapa de Riesgo PLD (Usuarios
-                            por Entidad)</h4>
-                        <div id="regions_div" style="width: 100%; height: 500px;"></div>
+                    <!-- Bitácora de Auditoría -->
+                    <div id="tab-audit" class="tab-content">
+                        <div class="section">
+                            <div class="section-header">
+                                <h2>🛡️ Bitácora de Auditoría (Audit Log)</h2>
+                                <p style="color:var(--text-muted); font-size:0.9em;">Registro inmutable de acciones
+                                    críticas del
+                                    sistema.</p>
+                            </div>
+                            <div class="data-table-container">
+                                <table id="tableAudit">
+                                    <thead>
+                                        <tr>
+                                            <th>Fecha/Hora</th>
+                                            <th>Usuario</th>
+                                            <th>Acción</th>
+                                            <th>Detalles</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
-
-                    <div class="search-box"><input type="text" id="searchKYC" placeholder="Buscar..."
-                            onkeyup="ui.filtrarTabla('tableKYC', this.value)"></div>
-                    <div class="table-container">
-                        <table id="tableKYC">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Nombre</th>
-                                    <th style="min-width:120px;">Estado</th>
-                                    <th>Edad/Sexo</th>
-                                    <th>Actividad Económica</th>
-                                    <th>RFC / CURP</th>
-                                    <th>Dirección</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                        <div class="pagination" id="pagKYC"></div>
-                    </div>
-                    <button class="btn btn-warning" onclick="app.eliminarTodoKYC()">🗑️ Borrar Todo el
-                        Padrón</button>
-                </div>
-            </div>
-
-            <!-- Exportar -->
-            <div id="tab-export" class="tab-content">
-                <div class="section">
-                    <div class="section-header">
-                        <h2>out Generar XML UIF</h2>
-                    </div>
-                    <p>Genera los avisos basados en el periodo seleccionado en la pestaña "Operaciones".</p>
-                    <div class="btn-group">
-                        <button class="btn btn-success" onclick="app.generarXML()">📄 Descargar XML</button>
-                        <button class="btn btn-primary" onclick="app.generarPDF()">📋 Descargar PDF
-                            Validación</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Banco de Reportes -->
-            <div id="tab-reports" class="tab-content">
-                <div class="section">
-                    <div class="section-header">
-                        <h2>📋 Banco de Reportes Generados</h2>
-                    </div>
-                    <div class="data-table-container">
-                        <table id="tableReportes">
-                            <thead>
-                                <tr>
-                                    <th>Fecha Generación</th>
-                                    <th>Tipo Aviso</th>
-                                    <th>Archivo</th>
-                                    <th>Hash (Simulado)</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Bitácora de Auditoría -->
-            <div id="tab-audit" class="tab-content">
-                <div class="section">
-                    <div class="section-header">
-                        <h2>🛡️ Bitácora de Auditoría (Audit Log)</h2>
-                        <p style="color:var(--text-muted); font-size:0.9em;">Registro inmutable de acciones
-                            críticas del
-                            sistema.</p>
-                    </div>
-                    <div class="data-table-container">
-                        <table id="tableAudit">
-                            <thead>
-                                <tr>
-                                    <th>Fecha/Hora</th>
-                                    <th>Usuario</th>
-                                    <th>Acción</th>
-                                    <th>Detalles</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
         </main>
     </div>
 
