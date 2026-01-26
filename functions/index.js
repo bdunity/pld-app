@@ -140,3 +140,6 @@ exports.getClientComplianceDashboard = serviceDeliveryFunctions.getClientComplia
 // const billingFunctions = require('./billing');
 // exports.recordUsage = billingFunctions.recordUsage;
 
+// Template Generator Functions
+const templateFunctions = require('./templates-generator');
+exports.downloadActivityTemplate = templateFunctions.downloadActivityTemplate;

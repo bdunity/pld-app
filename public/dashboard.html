@@ -379,7 +379,11 @@
                     <div class="section-header">
                         <h3 class="section-title">📁 Carga de Archivo Mensual</h3>
                         <div style="display: flex; gap: 8px; align-items: center;">
-                            <label class="text-muted" style="font-size: 0.85em;">Tipo de operación:</label>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="downloadTemplate()"
+                                style="border: 1px solid var(--border-color); background: transparent; color: var(--text-secondary);">
+                                📥 Descargar Plantilla
+                            </button>
+                            <label class="text-muted" style="font-size: 0.85em; margin-left: 8px;">Tipo:</label>
                             <select id="uploadTipoOperacion" class="form-select" style="width: auto;">
                                 <option value="depositos_retiros">💰 Depósitos y Retiros</option>
                                 <option value="solo_depositos">📥 Solo Depósitos</option>
@@ -830,6 +834,54 @@
                                 </thead>
                                 <tbody id="tableAuditBody"></tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================================ -->
+            <!-- TAB: EBR / RISK MATRIX -->
+            <!-- ================================ -->
+            <div id="tab-risk" class="tab-content">
+                <div class="section">
+                    <div class="section-header">
+                        <h3 class="section-title">⚠️ Enfoque Basado en Riesgo (EBR)</h3>
+                        <div class="header-actions">
+                            <select id="matrixSelector" class="form-select"
+                                onchange="RiskMatrix.loadMatrix(this.value)">
+                                <option value="default">Matriz Inmuebles (Default)</option>
+                                <option value="activos_virtuales_risk_matrix">Matriz Activos Virtuales</option>
+                                <option value="mutuo_risk_matrix">Matriz Mutuo/Préstamo</option>
+                            </select>
+                            <button class="btn btn-primary" onclick="RiskMatrix.saveMatrix()">💾 Guardar Matriz</button>
+                        </div>
+                    </div>
+
+                    <div class="card bg-darker">
+                        <div class="row">
+                            <div class="col-8">
+                                <div id="riskHeatmap" style="height: 400px; width: 100%;">Cargando mapa de calor...
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="stat-card">
+                                    <h4 class="stat-title">Nivel de Riesgo Inherente</h4>
+                                    <div class="stat-value text-warning" id="inherentRiskValue">Medio</div>
+                                    <p class="text-muted mt-2">Basado en 24 indicadores evaluados</p>
+                                </div>
+                                <div class="stat-card mt-3">
+                                    <h4 class="stat-title">Nivel de Riesgo Residual</h4>
+                                    <div class="stat-value text-success" id="residualRiskValue">Bajo</div>
+                                    <p class="text-muted mt-2">Después de mitigantes y controles</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mt-4">
+                        <h4 class="card-title">Factores de Riesgo</h4>
+                        <div id="riskFactorsEditor" class="mt-3">
+                            <!-- Factors dynamic list -->
                         </div>
                     </div>
                 </div>

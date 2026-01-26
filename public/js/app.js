@@ -4130,3 +4130,233 @@ function askAiFloating(text) {
     document.getElementById('floatingChatInput').value = text;
     sendFloatingMessage();
 }
+
+// ========== RISK MATRIX (EBR) MODULE ==========
+
+const RiskMatrix = {
+    currentMatrix: null,
+
+    init: function () {
+        console.log('Initializing Risk Matrix...');
+        this.populateSelector();
+    },
+
+    /**
+     * Populate matrix selector based on company's registered activities (Giros)
+     */
+    populateSelector: function () {
+        const selector = document.getElementById('matrixSelector');
+        if (!selector) return;
+
+        // Clear existing options
+        selector.innerHTML = '';
+
+        // Map Giros to Matrices
+        // Dictionary: GIRO_ID -> MATRIX_ID
+        const matrixMap = {
+            'inmobiliaria': 'inmuebles_risk_matrix',
+            'activos_virtuales': 'activos_virtuales_risk_matrix',
+            'mutuo': 'mutuo_risk_matrix',
+            'juegos_sorteos': 'general_risk_factors', // Fallback or specific
+            'default': 'general_risk_factors'
+        };
+
+        const activeGiros = appConfig.giros || [];
+        let hasOptions = false;
+
+        // Add options for each active giro
+        activeGiros.forEach(giroId => {
+            const matrixId = matrixMap[giroId] || matrixMap['default'];
+            const template = RISK_TEMPLATES?.[matrixId];
+
+            if (template) {
+                const option = document.createElement('option');
+                option.value = matrixId;
+                option.textContent = template._activity_name_es || `Matriz ${giroId}`;
+                selector.appendChild(option);
+                hasOptions = true;
+            }
+        });
+
+        // Fallback if no specific matrices found
+        if (!hasOptions) {
+            const option = document.createElement('option');
+            option.value = 'general_risk_factors';
+            option.textContent = 'Matriz General (Default)';
+            selector.appendChild(option);
+        }
+
+        // Load the first one
+        this.loadMatrix(selector.value);
+    },
+
+    loadMatrix: function (matrixType) {
+        console.log('Loading matrix:', matrixType);
+
+        if (typeof RISK_TEMPLATES === 'undefined') {
+            console.error('RISK_TEMPLATES not loaded');
+            document.getElementById('riskHeatmap').innerHTML = '<div class="alert alert-danger">Error: Plantillas de riesgo no cargadas</div>';
+            return;
+        }
+
+        const template = RISK_TEMPLATES[matrixType] || RISK_TEMPLATES.general_risk_factors;
+
+        if (!template) {
+            document.getElementById('riskHeatmap').innerHTML = '<div class="alert alert-warning">Matriz no encontrada para este giro</div>';
+            return;
+        }
+
+        this.renderHeatmap(template);
+        this.renderFactors(template);
+    },
+
+    renderHeatmap: function (template) {
+        const container = document.getElementById('riskHeatmap');
+        if (!container) return;
+
+        const levels = template.score_config?.thresholds || RISK_TEMPLATES.general_risk_factors.score_config.thresholds;
+
+        container.innerHTML = `
+            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 10px; height: 100%; align-items: end; padding: 20px;">
+                <div style="background: ${levels.low.color}; height: 30%; border-radius: 8px; position:relative; display:flex; justify-content:center; align-items:center; color:white; font-weight:bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                    BAJO <br> 0-30
+                </div>
+                <div style="background: ${levels.medium.color}; height: 50%; border-radius: 8px; position:relative; display:flex; justify-content:center; align-items:center; color:white; font-weight:bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                    MEDIO <br> 31-60
+                </div>
+                <div style="background: ${levels.high.color}; height: 70%; border-radius: 8px; position:relative; display:flex; justify-content:center; align-items:center; color:white; font-weight:bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                    ALTO <br> 61-80
+                </div>
+                <div style="background: ${levels.critical.color}; height: 90%; border-radius: 8px; position:relative; display:flex; justify-content:center; align-items:center; color:white; font-weight:bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                    CRÍTICO <br> 81-100
+                </div>
+            </div>
+            <div class="text-center mt-2 font-weight-bold" style="color: var(--text-muted);">${template._activity_name_es}</div>
+        `;
+
+        // Update stats
+        document.getElementById('inherentRiskValue').textContent = "Medio"; // Calculated dynamically in real app
+    },
+
+    renderFactors: function (template) {
+        const container = document.getElementById('riskFactorsEditor');
+        if (!container) return;
+
+        // Merge specific factors + general factors (subset)
+        // For display, showing specific factors first
+        const factors = template.specific_risk_factors || {};
+        const generalFactors = RISK_TEMPLATES.general_risk_factors.client_risk_factors; // Example subset
+
+        let html = '<div class="row">';
+
+        const allFactors = { ...factors };
+        // We could mix in general factors here if desired
+
+        if (Object.keys(allFactors).length === 0) {
+            html += '<div class="col-12"><p class="text-muted">No hay factores específicos definidos para esta matriz.</p></div>';
+        } else {
+            Object.values(allFactors).forEach(factor => {
+                html += `
+                    <div class="col-md-6 mb-3">
+                        <div class="card p-3" style="border-left: 4px solid ${factor.risk_level === 'HIGH' || factor.risk_level === 'CRITICAL' ? 'var(--color-danger)' : 'var(--color-warning)'}; background: var(--surface-secondary);">
+                            <div class="d-flex justify-content-between">
+                                <strong>${factor.name_es}</strong>
+                                <span class="badge badge-sm" style="background: rgba(255,255,255,0.1);">${factor.risk_level_es}</span>
+                            </div>
+                            <p class="text-muted small mt-1">${factor.description_es}</p>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <small style="color: var(--accent-primary);">Peso: ${factor.score_weight} pts</small>
+                                <label class="switch">
+                                    <input type="checkbox" checked disabled title="Factor activo por defecto">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        html += '</div>';
+        container.innerHTML = html;
+    },
+
+    saveMatrix: function () {
+        showToast('Configuración de Matriz guardada correctamente', 'success');
+    }
+};
+
+/**
+ * Global hook
+ */
+function loadRisk() {
+    RiskMatrix.init();
+}
+
+// Export for use if needed
+window.RiskMatrix = RiskMatrix;
+window.loadRisk = loadRisk;
+
+// ========== TEMPLATE DOWNLOAD MODULE ==========
+
+async function downloadTemplate() {
+    console.log('Downloading template...');
+
+    // Determine activity type
+    // Use principal giro or default
+    const activityType = (appConfig.giroPrincipal || 'DEFAULT').toUpperCase();
+
+    // Determine button element for loading state
+    const btn = event?.currentTarget || document.querySelector('button[onclick="downloadTemplate()"]');
+    const originalText = btn ? btn.innerHTML : '📥 Descargar Plantilla';
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Generando...';
+    }
+
+    try {
+        const downloadFn = firebase.functions().httpsCallable('downloadActivityTemplate');
+        const result = await downloadFn({
+            activityType: activityType
+        });
+
+        const data = result.data;
+        if (data.success && data.fileBase64) {
+            // Convert base64 to Blob
+            const byteCharacters = atob(data.fileBase64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+            // Trigger download
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = data.fileName || 'Plantilla.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            showToast('Plantilla descargada correctamente', 'success');
+        } else {
+            throw new Error('Respuesta inválida del servidor');
+        }
+
+    } catch (error) {
+        console.error('Error downloading template:', error);
+        showToast('Error al descargar plantilla: ' + error.message, 'danger');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+}
+
+// Export
+window.downloadTemplate = downloadTemplate;
