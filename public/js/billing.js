@@ -51,7 +51,13 @@ const BillingService = {
             OpenPay.setSandboxMode(true);
 
             // Generate Device ID for fraud prevention
-            this.deviceId = OpenPay.deviceData.setup();
+            if (OpenPay.deviceData && typeof OpenPay.deviceData.setup === 'function') {
+                try {
+                    this.deviceId = OpenPay.deviceData.setup();
+                } catch (e) {
+                    console.warn('OpenPay device setup failed:', e);
+                }
+            }
         }
 
         const user = AuthService.getCurrentUser();
