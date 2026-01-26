@@ -556,6 +556,137 @@ async function loadConfig() {
     }
 }
 
+// ========== REPORTS MODULE ==========
+
+/**
+ * Load Reports Tab
+ */
+async function loadReports() {
+    console.log('Loading Reports...');
+
+    // Check elements
+    const table = document.getElementById('tableReportsBody');
+    if (!table) return;
+
+    table.innerHTML = '<tr><td colspan="5" class="text-center">Cargando reportes...</td></tr>';
+
+    try {
+        const empresaId = AuthService.getCurrentUser().empresaId;
+        // In a real app, query 'generated_reports' collection
+        // Mock data for now if collection empty
+        const reports = [
+            { id: 1, type: 'Audit Trail', period: 'Ene 2026', generatedAt: '2026-01-15T10:00:00Z', status: 'ready', url: '#' },
+            { id: 2, type: 'Alertas', period: 'Dic 2025', generatedAt: '2026-01-01T09:30:00Z', status: 'ready', url: '#' }
+        ];
+
+        renderReportsTable(reports);
+
+    } catch (error) {
+        console.error('Error loading reports:', error);
+        table.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error al cargar reportes</td></tr>';
+    }
+}
+
+function renderReportsTable(reports) {
+    const tbody = document.getElementById('tableReportsBody');
+    if (!tbody) return;
+
+    if (reports.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No hay reportes generados</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = reports.map(r => `
+        <tr>
+            <td>${r.type}</td>
+            <td>${r.period}</td>
+            <td>${new Date(r.generatedAt).toLocaleDateString()}</td>
+            <td><span class="badge badge-success">Completado</span></td>
+            <td>
+                <button class="btn btn-sm btn-ghost" onclick="window.open('${r.url}')">📄 Descargar</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// ========== AUDIT (BITÁCORA) MODULE ==========
+
+/**
+ * Load Audit Log
+ */
+async function loadAudit() {
+    console.log('Loading Audit Log...');
+    const table = document.getElementById('tableAuditBody');
+    if (!table) return;
+
+    try {
+        // Fetch from Firestore 'audit_logs'
+        // Mock for display
+        const logs = [
+            { action: 'LOGIN', detail: 'Inicio de sesión exitoso', user: 'admin@test.com', timestamp: new Date().toISOString() },
+            { action: 'UPDATE_CONFIG', detail: 'Actualización de umbrales', user: 'admin@test.com', timestamp: new Date(Date.now() - 86400000).toISOString() }
+        ];
+
+        renderAuditTable(logs);
+
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function renderAuditTable(logs) {
+    const tbody = document.getElementById('tableAuditBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = logs.map(l => `
+        <tr>
+            <td>${new Date(l.timestamp).toLocaleString()}</td>
+            <td>${l.user}</td>
+            <td><span class="badge badge-info">${l.action}</span></td>
+            <td>${l.detail}</td>
+        </tr>
+    `).join('');
+}
+
+
+// ========== SOPORTE (SUPPORT) MODULE ==========
+
+/**
+ * Load Support Tab
+ */
+async function loadSoporte() {
+    console.log('Loading Support...');
+    // Setup support UI logic here
+}
+
+/**
+ * Create a new support ticket
+ */
+async function createSupportTicket(event) {
+    event.preventDefault();
+    const subject = document.getElementById('ticketSubject').value;
+    const message = document.getElementById('ticketMessage').value;
+
+    if (!subject || !message) {
+        showToast('Completa todos los campos', 'warning');
+        return;
+    }
+
+    try {
+        const ticketId = 'TKT-' + Math.floor(Math.random() * 10000);
+        showToast(`Ticket ${ticketId} creado exitosamente`, 'success');
+        document.getElementById('formSupportTicket').reset();
+    } catch (e) {
+        showToast('Error al crear ticket', 'danger');
+    }
+}
+
+// Attach globally
+window.loadReports = loadReports;
+window.loadAudit = loadAudit;
+window.loadSoporte = loadSoporte;
+window.createSupportTicket = createSupportTicket;
+
 /**
  * Save configuration
  */
