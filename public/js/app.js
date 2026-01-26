@@ -162,6 +162,7 @@ function setupUIForRole(user) {
         operations: { icon: '📊', label: 'Operaciones' },
         monitoring: { icon: '📈', label: 'Monitoreo 6 Meses' },
         kyc: { icon: '🔍', label: 'Padrón KYC' },
+        risk: { icon: '⚠️', label: 'EBR / Matriz de Riesgo' }, // ADDED
         compliance: { icon: '✅', label: 'Cumplimiento' },
         export: { icon: '📤', label: 'Exportar XML CNBV' },
         reports: { icon: '📋', label: 'Reportes PLD' },
@@ -185,7 +186,7 @@ function setupUIForRole(user) {
 
             sections.push({
                 title: 'OPERACIÓN DE EMPRESA',
-                items: ['config', 'upload', 'operations', 'monitoring', 'kyc', 'compliance', 'export', 'reports', 'audit'],
+                items: ['config', 'upload', 'operations', 'monitoring', 'kyc', 'risk', 'compliance', 'export', 'reports', 'audit'], // Added risk
                 requiresTab: false, // Bypass role tab check (Super Admin has all access)
                 forceAccess: true   // Explicit flag to force showing these items
             });
@@ -221,7 +222,7 @@ function setupUIForRole(user) {
         });
         sections.push({
             title: 'CUMPLIMIENTO PLD',
-            items: ['upload', 'operations', 'monitoring', 'kyc', 'compliance', 'export', 'reports', 'audit'],
+            items: ['upload', 'operations', 'monitoring', 'kyc', 'risk', 'compliance', 'export', 'reports', 'audit'], // Added risk
             requiresTab: true
         });
         sections.push({
@@ -384,6 +385,7 @@ function switchTab(tabId) {
         operations: ['Operaciones', 'Análisis por periodo'],
         monitoring: ['Monitoreo 6 Meses', 'Acumulados por cliente'],
         kyc: ['Padrón KYC', 'Información de clientes'],
+        risk: ['EBR / Matriz de Riesgo', 'Gestión de riesgos PLD/FT'], // Added
         compliance: ['Cumplimiento', 'Calendario, alertas y métricas'],
         export: ['Exportar', 'Generar reportes'],
         reports: ['Banco de Reportes', 'Historial de reportes generados'],
@@ -405,6 +407,10 @@ function switchTab(tabId) {
     } else if (tabId === 'compliance') {
         setTimeout(() => {
             loadCompliance();
+            // Init Premium Services UI
+            if (typeof ServicesController !== 'undefined') {
+                ServicesController.init();
+            }
             if (window.GraphService) {
                 GraphService.init('networkGraph');
             }
@@ -415,6 +421,14 @@ function switchTab(tabId) {
         setTimeout(() => loadSoporte(), 100);
     } else if (tabId === 'upload') {
         setTimeout(() => loadUploadEmpresaContext(), 100);
+    } else if (tabId === 'risk' && typeof loadRisk === 'function') { // ADDED
+        setTimeout(() => loadRisk(), 100); // ADDED
+    }
+
+    // Config Tab Init
+    if (tabId === 'config') { // ADDED
+        // Also ensure billing is ready if it wasn't
+        if (typeof BillingService !== 'undefined') BillingService.renderUI(); // ADDED
     }
 
     // Load export giros when switching to export tab
