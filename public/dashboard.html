@@ -47,6 +47,153 @@
 </head>
 
 <body class="layout-sidebar">
+    <!-- LOGIN OVERLAY STYLES -->
+    <style>
+        #loginOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 5, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 1;
+            transition: opacity 0.5s;
+        }
+
+        #loginOverlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .auth-card {
+            background: rgba(30, 41, 59, 0.9);
+            padding: 40px;
+            border-radius: 24px;
+            width: 400px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            color: #fff;
+        }
+
+        .auth-logo {
+            width: 80px;
+            margin-bottom: 20px;
+            border-radius: 50%;
+        }
+
+        .auth-title {
+            font-size: 1.8em;
+            font-weight: 800;
+            margin-bottom: 5px;
+            color: #fff;
+        }
+
+        .auth-subtitle {
+            color: #94a3b8;
+            font-size: 0.9em;
+            margin-bottom: 30px;
+        }
+
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .auth-input {
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px solid #475569;
+            background: rgba(15, 23, 42, 0.6);
+            color: #fff;
+            font-size: 1em;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .auth-btn {
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            background: #2563eb;
+            color: white;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .auth-btn:hover {
+            background: #1d4ed8;
+        }
+
+        .auth-link {
+            margin-top: 15px;
+            font-size: 0.85em;
+            color: #60a5fa;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+
+    <!-- LOGIN OVERLAY -->
+    <div id="loginOverlay">
+        <div class="auth-card" id="viewLogin">
+            <img src="https://thumbs2.imgbox.com/a5/db/28bD5e7C_t.jpg" alt="Logo" class="auth-logo">
+            <h2 class="auth-title">Bienvenido</h2>
+            <p class="auth-subtitle">Sistema PLD/FT - SaaS Cloud Edition</p>
+            <div class="auth-form">
+                <input type="email" id="loginEmail" class="auth-input" placeholder="Correo Electrónico">
+                <input type="password" id="loginPass" class="auth-input" placeholder="Contraseña">
+                <button class="auth-btn" id="btnLoginAction">Iniciar Sesión</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Logic Injection -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const btnLogin = document.getElementById('btnLoginAction');
+            const overlay = document.getElementById('loginOverlay');
+
+            // UI Handler
+            btnLogin.addEventListener('click', async () => {
+                const email = document.getElementById('loginEmail').value;
+                const pass = document.getElementById('loginPass').value;
+                if (!email || !pass) return alert("Ingresa credenciales.");
+
+                try {
+                    btnLogin.textContent = "Verificando...";
+                    await firebase.auth().signInWithEmailAndPassword(email, pass);
+                    // Listener will handle UI close
+                } catch (e) {
+                    alert("Error: " + e.message);
+                    btnLogin.textContent = "Iniciar Sesión";
+                }
+            });
+
+            // State Listener
+            firebase.auth().onAuthStateChanged(user => {
+                if (user) {
+                    overlay.classList.add('hidden');
+                    console.log("Logged In as: " + user.email);
+                } else {
+                    overlay.classList.remove('hidden');
+                    console.log("Logged Out");
+                }
+            });
+        });
+    </script>
+
     <!-- Visual Debugger Removed for Production -->
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
