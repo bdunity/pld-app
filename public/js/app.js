@@ -3318,77 +3318,64 @@ async function generateXMLForGiro() {
         return;
     }
 
-    showLoading(`Generando XML para ${giro.nombre}...`);
-
     try {
-        const uma = appConfig.uma || 113.14;
-        const umbralMXN = giro.umbralAviso * uma;
+        const user = AuthService.getCurrentUser();
+        const tenantId = user.tenantId; // Assuming in user object
+        // Find workspace for this giro
+        // In this simple version, we might need to look it up or pass it.
+        // Assuming we have access to workspaces in memory or can derive it.
+        // Fallback: use active workspace if matches, or find in user.workspaces
 
-        // Filter operations above this giro's threshold
-        const depositos = (currentData.depositos || []).filter(op => op.monto >= umbralMXN);
-        const retiros = (currentData.retiros || []).filter(op => op.monto >= umbralMXN);
-
-        if (depositos.length === 0 && retiros.length === 0) {
-            hideLoading();
-            const genCero = confirm(`No hay operaciones por encima del umbral de ${umbralMXN.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })} para ${giro.nombre}.\n\n¿Deseas generar un Informe en Cero?`);
-            if (genCero) {
-                await generateXMLInformeCeroForGiro(giroId, periodo);
-            }
-            return;
+        let workspaceId = null;
+        if (appConfig.giroPrincipal === giroId) {
+            // Current workspace matches
+            // We don't have workspaceId readily available in appConfig? 
+            // We should store it in appConfig.
+            workspaceId = appConfig.workspaceId || 'default';
+        } else {
+            // Try to find in user workspaces
+            const ws = user.workspaces?.find(w => w.activity_type === giroId || w.giro === giroId);
+            workspaceId = ws ? ws.id : 'default';
         }
 
-        // Generate XML using XMLGenerator
-        if (typeof XMLGenerator !== 'undefined') {
-            if (depositos.length > 0) {
-                const personasDeps = preparePersonasForXML(depositos);
-                const xmlDeps = XMLGenerator.generateJYS({
-                    mesReportado: periodo,
-                    rfcSujetoObligado: appConfig.rfc,
-                    referencia: `${periodo}_DEPOSITOS_${giroId}`,
-                    personas: personasDeps,
-                    cpSucursal: '00000'
-                });
-                XMLGenerator.download(xmlDeps, `Aviso_DEPOSITOS_${periodo}_${giroId}.xml`);
+        // Convert YYYYMM to Dates
+        const year = periodo.substring(0, 4);
+        const month = periodo.substring(4, 6);
+        const lastDay = new Date(year, month, 0).getDate();
+
+        const periodoInicio = `${year}-${month}-01`;
+        const periodoFin = `${year}-${month}-${lastDay}`;
+
+        showLoading('Solicitando generación en la nube...');
+
+        const generateFn = firebase.functions().httpsCallable('generateXMLBatch');
+        const result = await generateFn({
+            tenantId: tenantId,
+            workspaceId: workspaceId,
+            periodoInicio: periodoInicio,
+            periodoFin: periodoFin
+        });
+
+        hideLoading();
+        console.log('XML Generation Result:', result.data);
+
+        if (result.data.success) {
+            showToast('✅ Solicitud recibida. El XML se está generando en el servidor.', 'success');
+            // If URL returned directly
+            if (result.data.downloadUrl) {
+                window.open(result.data.downloadUrl, '_blank');
+            } else {
+                showToast('Te notificaremos cuando el archivo esté listo para descargar.', 'info');
             }
-
-            if (retiros.length > 0) {
-                const personasRets = preparePersonasForXML(retiros);
-                const xmlRets = XMLGenerator.generateJYS({
-                    mesReportado: periodo,
-                    rfcSujetoObligado: appConfig.rfc,
-                    referencia: `${periodo}_RETIROS_${giroId}`,
-                    personas: personasRets,
-                    cpSucursal: '00000'
-                });
-                XMLGenerator.download(xmlRets, `Aviso_RETIROS_${periodo}_${giroId}.xml`);
-            }
-
-            // Save report record
-            await dbService.addItems('reports', [{
-                id: Date.now(),
-                tipo: 'XML',
-                giro: giroId,
-                giroNombre: giro.nombre,
-                periodo: periodo,
-                depositos: depositos.length,
-                retiros: retiros.length,
-                umbral: giro.umbralAviso,
-                fecha: new Date().toISOString()
-            }]);
-
-            await AuthService.logAudit('GENERAR_XML', `XML generado para ${giro.nombre} periodo ${periodo}: ${depositos.length} depósitos, ${retiros.length} retiros`);
-
-            showToast(`XML generado: ${depositos.length} depósitos, ${retiros.length} retiros`, 'success');
         } else {
-            showToast('XMLGenerator no disponible', 'danger');
+            throw new Error(result.data.message || 'Error desconocido');
         }
 
     } catch (error) {
-        console.error('Error generating XML:', error);
-        showToast('Error generando XML: ' + error.message, 'danger');
+        console.error('Error in cloud generation:', error);
+        hideLoading();
+        showToast('Error al solicitar XML: ' + error.message, 'danger');
     }
-
-    hideLoading();
 }
 
 /**
