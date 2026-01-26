@@ -246,6 +246,58 @@ const BillingService = {
         document.body.insertAdjacentHTML('beforeend', modalHtml);
     },
 
+    /**
+     * Show Invoices Modal
+     */
+    showInvoices() {
+        const invoices = [
+            { id: 'INV-2025-001', date: '2025-01-01', amount: 999.00, status: 'pagado' },
+            { id: 'INV-2024-012', date: '2024-12-01', amount: 999.00, status: 'pagado' }
+        ];
+
+        const rows = invoices.map(inv => `
+            <tr>
+                <td>${inv.id}</td>
+                <td>${inv.date}</td>
+                <td>$${inv.amount.toFixed(2)}</td>
+                <td><span class="badge badge-success">${inv.status.toUpperCase()}</span></td>
+                <td>
+                    <button class="btn btn-xs btn-outline-primary" onclick="alert('Descargando factura ${inv.id}...')">⬇ PDF</button>
+                    <button class="btn btn-xs btn-outline-secondary" onclick="alert('Descargando XML ${inv.id}...')">⬇ XML</button>
+                </td>
+            </tr>
+        `).join('');
+
+        const modalHtml = `
+            <div id="invoicesModal" class="modal active" style="z-index: 10001;">
+                <div class="modal-content">
+                    <span class="close" onclick="document.getElementById('invoicesModal').remove()">&times;</span>
+                    <h3>Historial de Facturación</h3>
+                    <div style="overflow-x: auto; margin-top: 15px;">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Folio</th>
+                                    <th>Fecha</th>
+                                    <th>Monto</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rows || '<tr><td colspan="5" class="text-center">No hay facturas disponibles</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const existing = document.getElementById('invoicesModal');
+        if (existing) existing.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    },
+
     selectedPlanId: null,
 
     selectPlanForCheckout(planId) {

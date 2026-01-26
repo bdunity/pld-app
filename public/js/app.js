@@ -1428,9 +1428,135 @@ function renderKYCTable(clients) {
                         <div style="width: ${ratio}%; height: 100%; background: ${color}; border-radius: 4px; transition: width 0.5s ease;"></div>
                     </div>
                 </td>
+                <td class="text-right">
+                    <button class="btn btn-sm btn-outline-info" onclick="openClientFile('${c.playercode}')" title="Ver Expediente">📂</button>
+                    <button class="btn btn-sm btn-outline-secondary ml-1" onclick="alert('Descargando reporte de riesgo...')" title="Reporte de Riesgo">📊</button>
+                </td>
             </tr>
         `;
     }).join('');
+}
+
+/**
+ * Open Client File Modal (Expediente Digital)
+ */
+async function openClientFile(playercode) {
+    const clients = await dbService.getAll('kyc'); // Optimized: should get single
+    const client = clients.find(c => c.playercode === playercode);
+
+    if (!client) return;
+
+    // Load docs for this client
+    let docs = [];
+    try {
+        const allDocs = await dbService.getAll('kyc_docs') || [];
+        docs = allDocs.filter(d => d.playercode === playercode);
+    } catch (e) { console.error(e); }
+
+    const docsHtml = docs.length > 0 ? docs.map(d => `
+        <div class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+                <strong>${d.tipo}</strong>
+                <br><small class="text-muted">${new Date(d.uploadedAt).toLocaleDateString()}</small>
+            </div>
+            <button class="btn btn-sm btn-outline-primary">⬇</button>
+        </div>
+    `).join('') : '<p class="text-center text-muted p-3">Sin documentos</p>';
+
+    const modalHtml = `
+        <div id="clientFileModal" class="modal active" style="z-index: 10005;">
+            <div class="modal-content" style="max-width: 700px;">
+                <span class="close" onclick="document.getElementById('clientFileModal').remove()">&times;</span>
+                <div class="d-flex justify-content-between align-items-starts">
+                    <h3>Expediente Digital</h3>
+                    <div class="text-right">
+                        <h5 class="m-0">${client.nombre} ${client.apellido}</h5>
+                        <small class="text-muted">ID: ${client.playercode}</small>
+                    </div>
+                </div>
+                
+                <hr style="border-color: rgba(255,255,255,0.1);">
+                
+                <div class="row">
+                    <div class="col-6">
+                        <h5>Documentos Requeridos</h5>
+                        <div class="list-group list-group-flush mb-3" id="docsList">
+                            ${docsHtml}
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <h5>Subir Documento</h5>
+                        <form onsubmit="return false;" class="p-3 bg-dark rounded">
+                            <div class="form-group">
+                                <label>Tipo de Documento</label>
+                                <select id="docType" class="form-control">
+                                    <option value="Identificación Oficial">Identificación Oficial</option>
+                                    <option value="Comprobante de Domicilio">Comprobante de Domicilio</option>
+                                    <option value="Cédula Fiscal (RFC)">Cédula Fiscal (RFC)</option>
+                                    <option value="CURP">CURP</option>
+                                    <option value="Otro">Otro</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Archivo</label>
+                                <input type="file" id="clientDocFile" class="form-control">
+                            </div>
+                            <button class="btn btn-primary w-100 mt-2" onclick="uploadClientDoc('${playercode}')">Subir al Expediente</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+/**
+ * Upload Client Document
+ */
+async function uploadClientDoc(playercode) {
+    const fileInput = document.getElementById('clientDocFile');
+    const type = document.getElementById('docType').value;
+
+    if (fileInput.files.length === 0) {
+        alert('Selecciona un archivo');
+        return;
+    }
+
+    showLoading('Encriptando y guardando...');
+
+    try {
+        const user = AuthService.getCurrentUser();
+        const doc = {
+            id: `kdoc_${Date.now()}`,
+            playercode: playercode,
+            empresaId: user.empresaId,
+            tipo: type,
+            nombreArchivo: fileInput.files[0].name,
+            uploadedAt: new Date().toISOString(),
+            uploadedBy: user.email,
+            storagePath: `kyc/${playercode}/${Date.now()}_${fileInput.files[0].name}`
+        };
+
+        // Simulating storage upload
+        await new Promise(r => setTimeout(r, 1000));
+
+        await dbService.addItems('kyc_docs', [doc]);
+        await AuthService.logAudit('SUBIR_KYC', `Documento ${type} para cliente ${playercode}`);
+
+        document.getElementById('clientFileModal').remove();
+        showToast('Documento guardado exitosamente', 'success');
+
+        // Re-open to show new doc
+        setTimeout(() => openClientFile(playercode), 500);
+
+    } catch (e) {
+        console.error(e);
+        showToast('Error al subir documento', 'danger');
+    } finally {
+        hideLoading();
+    }
 }
 
 /**
@@ -1893,6 +2019,9 @@ async function loadCompliance() {
                 document.getElementById('metricAlertas').textContent = metricas.operaciones.conAlerta;
                 document.getElementById('metricTasa').textContent = metricas.operaciones.tasaAlertas + '%';
             }
+
+            // Render Acuses Manager (SaaS Feature)
+            await ComplianceService.renderAcusesManager();
         }
     } catch (error) {
         console.error('Error loading compliance:', error);

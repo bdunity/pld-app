@@ -483,6 +483,173 @@ const ComplianceService = {
         }
 
         return resultado;
+    },
+
+    // ========== EXPEDIENTE DE CUMPLIMIENTO (SaaS Feature) ==========
+
+    /**
+     * Renderizar gestor de acuses
+     */
+    async renderAcusesManager() {
+        const container = document.getElementById('acusesContainer');
+        if (!container) return; // Should be in HTML or created dynamically
+
+        container.innerHTML = `
+            <div class="card mt-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h3 class="card-title">📂 Expediente de Cumplimiento (Acuses SAT)</h3>
+                    <button class="btn btn-sm btn-primary" onclick="ComplianceService.showUploadModal()">⬆ Subir Acuse</button>
+                </div>
+                <div class="card-body">
+                    <div id="acusesList" class="list-group list-group-flush">
+                        <div class="text-center p-3">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <p class="mt-2 text-muted">Cargando acuses...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        await this.loadAcuses();
+    },
+
+    /**
+     * Cargar acuses desde Firestore
+     */
+    async loadAcuses() {
+        const listContainer = document.getElementById('acusesList');
+        if (!listContainer) return;
+
+        try {
+            // In real app, query 'compliance_docs' collection
+            const user = AuthService.getCurrentUser();
+            let docs = [];
+
+            if (user && user.empresaId) {
+                docs = await dbService.getByIndex('compliance_docs', 'empresaId', user.empresaId);
+            }
+
+            // Sort by date desc
+            docs.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+            if (docs.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="text-center p-4 text-muted">
+                        <p style="font-size: 2em;">📄</p>
+                        <p>No hay acuses subidos aún.</p>
+                        <small>Sube aquí tus acuses de aceptación del portal antilavado.</small>
+                    </div>
+                `;
+                return;
+            }
+
+            listContainer.innerHTML = docs.map(doc => `
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${doc.nombre}</strong>
+                        <br>
+                        <small class="text-muted">Mes: ${doc.mes}/${doc.anio} | Subido: ${new Date(doc.uploadedAt).toLocaleDateString()}</small>
+                    </div>
+                    <div>
+                        <span class="badge badge-success">ACEPTADO</span>
+                        <button class="btn btn-sm btn-outline-secondary ml-2" onclick="alert('Descargando ${doc.nombre}...')">⬇</button>
+                    </div>
+                </div>
+            `).join('');
+
+        } catch (error) {
+            console.error(error);
+            listContainer.innerHTML = '<p class="text-danger text-center">Error cargando acuses</p>';
+        }
+    },
+
+    /**
+     * Mostrar modal de carga
+     */
+    showUploadModal() {
+        const modalHtml = `
+            <div id="uploadAcuseModal" class="modal active" style="z-index: 10002;">
+                <div class="modal-content">
+                    <span class="close" onclick="document.getElementById('uploadAcuseModal').remove()">&times;</span>
+                    <h3>Subir Acuse SAT</h3>
+                    <form onsubmit="return false;">
+                        <div class="form-group">
+                            <label>Periodo</label>
+                            <div class="d-flex gap-2">
+                                <select id="acuseMes" class="form-control">
+                                    <option value="1">Enero</option><option value="2">Febrero</option>
+                                    <option value="3">Marzo</option><option value="4">Abril</option>
+                                    <option value="5">Mayo</option><option value="6">Junio</option>
+                                    <option value="7">Julio</option><option value="8">Agosto</option>
+                                    <option value="9">Septiembre</option><option value="10">Octubre</option>
+                                    <option value="11">Noviembre</option><option value="12">Diciembre</option>
+                                </select>
+                                <select id="acuseAnio" class="form-control">
+                                    <option value="2025">2025</option>
+                                    <option value="2024">2024</option>
+                                    <option value="2023">2023</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Archivo PDF</label>
+                            <input type="file" id="acuseFile" class="form-control" accept=".pdf">
+                        </div>
+                        <div class="mt-3 text-right">
+                            <button class="btn btn-primary" onclick="ComplianceService.saveAcuse()">Guardar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    },
+
+    /**
+     * Guardar acuse (Simulado)
+     */
+    async saveAcuse() {
+        const mes = document.getElementById('acuseMes').value;
+        const anio = document.getElementById('acuseAnio').value;
+        const fileInput = document.getElementById('acuseFile');
+
+        if (fileInput.files.length === 0) {
+            alert('Selecciona un archivo');
+            return;
+        }
+
+        showLoading('Guardando acuse...');
+
+        try {
+            const user = AuthService.getCurrentUser();
+            const doc = {
+                id: `doc_${Date.now()}`,
+                empresaId: user.empresaId,
+                nombre: fileInput.files[0].name,
+                tipo: 'acuse_sat',
+                mes: mes,
+                anio: anio,
+                uploadedAt: new Date().toISOString(),
+                uploadedBy: user.email,
+                url: '#', // In real app: Storage URL
+                fecha: new Date().toISOString() // Indexable date
+            };
+
+            await dbService.addItems('compliance_docs', [doc]);
+            await AuthService.logAudit('SUBIR_ACUSE', `Acuse subido: ${doc.nombre}`);
+
+            document.getElementById('uploadAcuseModal').remove();
+            showToast('Acuse guardado correctamente', 'success');
+
+            await this.loadAcuses();
+
+        } catch (e) {
+            console.error(e);
+            showToast('Error al guardar', 'danger');
+        } finally {
+            hideLoading();
+        }
     }
 };
 

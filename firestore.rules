@@ -318,6 +318,15 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if isSuperAdmin();
     }
+    
+    // ============================================================================
+    // 5.0 TENANT CONFIGURATION (Per-Company Settings)
+    // Path: /config/{configId}
+    // Policy: Allow authenticated users to load their company config
+    // ============================================================================
+    match /config/{configId} {
+      allow read, write: if isAuthenticated();
+    }
 
     // ============================================================================
     // 5.1 GIROS CATALOG (Legacy/Root)
