@@ -28,10 +28,10 @@ const AuthService = {
             permissions: ['read', 'write']
         },
         visitor: {
-            name: 'Visitante',
+            name: 'Visitante (Acceso Total)',
             icon: '👁️',
-            tabs: ['dashboard'],
-            permissions: ['read_aggregate']
+            tabs: ['empresas', 'dashboard', 'billing', 'config', 'upload', 'operations', 'monitoring', 'kyc', 'compliance', 'export', 'reports', 'audit', 'soporte', 'ai_config'],
+            permissions: ['read_all', 'write_all']
         }
     },
 
