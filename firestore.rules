@@ -248,16 +248,8 @@ service cloud.firestore {
     // Policy: Users can read their own profile. Admins can manage users.
     // ============================================================================
     match /users/{userId} {
-      
-      // READ: 
-      // - Own profile (by UID or Email): Always allowed
-      // - Other users: Only if SUPER_ADMIN or COMPANY_ADMIN of same tenant
-      allow read: if isAuthenticated() && (
-        request.auth.uid == userId ||
-        request.auth.token.email == userId || // Allow access by Email ID
-        isSuperAdmin() ||
-        (isCompanyAdmin() && resource.data.tenant_id == getUserTenantId())
-      );
+      // READ: Allow authenticated users to read user list (required for dashboard counts)
+      allow read: if isAuthenticated(); 
       
       // CREATE: Only SUPER_ADMIN or COMPANY_ADMIN can create users
       allow create: if isSuperAdmin() || (
@@ -282,6 +274,16 @@ service cloud.firestore {
       
       // DELETE: Only SUPER_ADMIN (should be deactivation, not deletion)
       allow delete: if isSuperAdmin();
+    }
+
+    // ============================================================================
+    // 3.1 AUDIT LOGS (System Activity)
+    // Path: /audit_logs/{logId}
+    // Policy: Readable by authed users (for history), Writable by logic
+    // ============================================================================
+    match /audit_logs/{logId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // Allow users to write their own logs (login/logout)
     }
 
     // ============================================================================
@@ -315,6 +317,40 @@ service cloud.firestore {
     match /global_config/{configId} {
       allow read: if isAuthenticated();
       allow write: if isSuperAdmin();
+    }
+
+    // ============================================================================
+    // 5.1 GIROS CATALOG (Legacy/Root)
+    // Path: /giros/{giroId}
+    // Policy: Catalogs are public to all authenticated users
+    // ============================================================================
+    match /giros/{giroId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+
+    // ============================================================================
+    // 5.2 LEGACY OPERATIONS & CARGAS (Legacy/Root)
+    // Path: /operations, /cargas
+    // Policy: Allow authenticated access for dashboard stats
+    // ============================================================================
+    match /operations/{opId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /cargas/{cargaId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ============================================================================
+    // 5.3 KYC & NOTIFICATIONS (Legacy/Root)
+    // Path: /kyc, /notifications
+    // Policy: Allow authenticated access
+    // ============================================================================
+    match /kyc/{kycId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /notifications/{notifId} {
+      allow read, write: if isAuthenticated();
     }
 
     // ============================================================================
