@@ -1,0 +1,87 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper function to get tenant ID from auth token
+    // Falls back to user UID if no custom claim
+    function getTenantId() {
+      return request.auth.token.tenantId != null
+        ? request.auth.token.tenantId
+        : request.auth.uid;
+    }
+
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Validate file size (in bytes)
+    function isValidSize(maxSize) {
+      return request.resource.size <= maxSize;
+    }
+
+    // ========================================
+    // TENANT FILES (Multi-tenant isolation)
+    // ========================================
+
+    // Generic rule for tenant files
+    match /tenants/{tenantId}/{allPaths=**} {
+      allow read: if isAuthenticated() && getTenantId() == tenantId;
+      allow write: if isAuthenticated() && getTenantId() == tenantId
+                   && isValidSize(10 * 1024 * 1024); // 10MB max
+    }
+
+    // ========================================
+    // XML REPORTS
+    // ========================================
+
+    match /tenants/{tenantId}/xml-reports/{fileName} {
+      allow read: if isAuthenticated() && getTenantId() == tenantId;
+      // Users can also upload XML reports
+      allow write: if isAuthenticated() && getTenantId() == tenantId
+                   && isValidSize(5 * 1024 * 1024);
+    }
+
+    // ========================================
+    // COMPLIANCE DOCUMENTS (Acuses PDF)
+    // ========================================
+
+    match /tenants/{tenantId}/compliance/acuses/{fileName} {
+      allow read: if isAuthenticated() && getTenantId() == tenantId;
+      allow write: if isAuthenticated() && getTenantId() == tenantId
+                   && isValidSize(5 * 1024 * 1024) // Max 5MB
+                   && request.resource.contentType == 'application/pdf';
+    }
+
+    // ========================================
+    // KYC DOCUMENTS (Expedientes digitales)
+    // ========================================
+
+    match /tenants/{tenantId}/clients/{clientRfc}/docs/{fileName} {
+      allow read: if isAuthenticated() && getTenantId() == tenantId;
+      allow write: if isAuthenticated() && getTenantId() == tenantId
+                   && isValidSize(5 * 1024 * 1024) // Max 5MB
+                   && (request.resource.contentType == 'application/pdf'
+                       || request.resource.contentType.matches('image/.*'));
+    }
+
+    // ========================================
+    // TEMPLATES (Plantillas Excel - Solo lectura)
+    // ========================================
+
+    match /templates/{fileName} {
+      // Public read for templates
+      allow read: if true;
+      // Only backend can write templates
+      allow write: if false;
+    }
+
+    // ========================================
+    // DEFAULT DENY
+    // ========================================
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,1 @@
+export { ComplianceVaultPage } from './ComplianceVaultPage';

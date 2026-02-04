@@ -1,0 +1,1 @@
+export { XmlFactoryPage } from './XmlFactoryPage';

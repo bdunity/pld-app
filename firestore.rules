@@ -1,0 +1,178 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ========================================
+    // HELPER FUNCTIONS
+    // ========================================
+
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Get user's tenant ID from custom claims
+    function getUserTenantId() {
+      return request.auth.token.tenantId;
+    }
+
+    // Check if document belongs to user's tenant
+    function belongsToTenant() {
+      return resource.data.tenantId == getUserTenantId();
+    }
+
+    // Check if new document will belong to user's tenant
+    function willBelongToTenant() {
+      return request.resource.data.tenantId == getUserTenantId();
+    }
+
+    // Check user role
+    function hasRole(role) {
+      return request.auth.token.role == role;
+    }
+
+    // Check if user is admin
+    function isAdmin() {
+      return hasRole('admin') || hasRole('superadmin');
+    }
+
+    // Check if user is superadmin (global access)
+    function isSuperAdmin() {
+      return hasRole('superadmin');
+    }
+
+    // ========================================
+    // TENANT RULES (Multi-tenant isolation)
+    // ========================================
+
+    match /tenants/{tenantId} {
+      // Only superadmin can list all tenants
+      allow list: if isSuperAdmin();
+
+      // Users can read their own tenant
+      allow get: if isAuthenticated() && getUserTenantId() == tenantId;
+
+      // Only superadmin can create/update/delete tenants
+      allow create, update, delete: if isSuperAdmin();
+
+      // Subcollection: Operations (uploaded data from Excel)
+      match /operations/{operationId} {
+        // Users can read operations from their own tenant
+        allow read: if isAuthenticated() && getUserTenantId() == tenantId;
+        // Only backend (Cloud Functions with Admin SDK) can write
+        allow write: if false;
+      }
+    }
+
+    // ========================================
+    // USER RULES
+    // ========================================
+
+    match /users/{userId} {
+      // Users can read their own profile
+      allow get: if isAuthenticated() && request.auth.uid == userId;
+
+      // Admins can read users in their tenant
+      allow list: if isAuthenticated() && isAdmin();
+
+      // Users can update their own profile (limited fields)
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+
+      // Only admins can create/delete users
+      allow create, delete: if isAuthenticated() && isAdmin();
+    }
+
+    // ========================================
+    // OPERATIONS (Operaciones PLD)
+    // ========================================
+
+    match /operations/{operationId} {
+      // REGLA DE ORO: Solo lectura/escritura si pertenece al tenant del usuario
+      allow read: if isAuthenticated() && belongsToTenant();
+      allow create: if isAuthenticated() && willBelongToTenant();
+      allow update: if isAuthenticated() && belongsToTenant() && willBelongToTenant();
+      allow delete: if isAuthenticated() && belongsToTenant() && isAdmin();
+    }
+
+    // ========================================
+    // CLIENTS (Clientes/Contrapartes)
+    // ========================================
+
+    match /clients/{clientId} {
+      allow read: if isAuthenticated() && belongsToTenant();
+      allow create: if isAuthenticated() && willBelongToTenant();
+      allow update: if isAuthenticated() && belongsToTenant() && willBelongToTenant();
+      allow delete: if isAuthenticated() && belongsToTenant() && isAdmin();
+    }
+
+    // ========================================
+    // XML REPORTS (Reportes XML generados)
+    // ========================================
+
+    match /xmlReports/{reportId} {
+      allow read: if isAuthenticated() && belongsToTenant();
+      allow create: if isAuthenticated() && willBelongToTenant();
+      allow update: if isAuthenticated() && belongsToTenant() && willBelongToTenant();
+      allow delete: if isAuthenticated() && belongsToTenant() && isAdmin();
+    }
+
+    // ========================================
+    // COMPLIANCE DOCUMENTS (Acuses y Expedientes)
+    // ========================================
+
+    match /complianceDocuments/{docId} {
+      allow read: if isAuthenticated() && belongsToTenant();
+      allow create: if isAuthenticated() && willBelongToTenant();
+      allow update: if isAuthenticated() && belongsToTenant() && willBelongToTenant();
+      allow delete: if isAuthenticated() && belongsToTenant() && isAdmin();
+    }
+
+    // ========================================
+    // BILLING (Facturación y Pagos)
+    // ========================================
+
+    match /subscriptions/{subId} {
+      allow read: if isAuthenticated() && belongsToTenant();
+      // Only backend (admin SDK) can modify subscriptions
+      allow write: if false;
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated() && belongsToTenant();
+      // Only backend (admin SDK) can modify payments
+      allow write: if false;
+    }
+
+    // ========================================
+    // SUPPORT (Tickets de soporte)
+    // ========================================
+
+    match /tickets/{ticketId} {
+      allow read: if isAuthenticated() && belongsToTenant();
+      allow create: if isAuthenticated() && willBelongToTenant();
+      allow update: if isAuthenticated() && belongsToTenant();
+      // Only admins can delete tickets
+      allow delete: if isAuthenticated() && belongsToTenant() && isAdmin();
+    }
+
+    // ========================================
+    // AUDIT LOG (Inmutable - Solo lectura)
+    // ========================================
+
+    match /auditLog/{logId} {
+      // Solo lectura para usuarios del tenant
+      allow read: if isAuthenticated() && belongsToTenant();
+      // Solo el backend puede escribir logs
+      allow write: if false;
+    }
+
+    // ========================================
+    // DEFAULT DENY
+    // ========================================
+
+    // Denegar acceso a cualquier otra colección no especificada
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
