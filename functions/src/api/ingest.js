@@ -11,13 +11,91 @@ import * as XLSX from 'xlsx';
 
 
 // ========================================
+// CATÁLOGO DE TIPOS DE OPERACIÓN POR ACTIVIDAD (SAT/LFPIORPI)
+// Define los tipos válidos de operación para cada actividad vulnerable.
+// Esto permite distinguir la naturaleza de cada operación (ej: depósito vs retiro,
+// compra vs venta) lo cual es requerido para los avisos ante el SAT.
+// ========================================
+const TIPOS_OPERACION = {
+    JUEGOS_APUESTAS: [
+        'Depósito', 'Retiro', 'Apuesta', 'Premio', 'Compra de fichas',
+        'Canje de fichas', 'Carga de cuenta', 'Ingreso', 'Cobro de premio',
+        'Devolución',
+    ],
+    TARJETAS_PREPAGO: [
+        'Emisión de tarjeta', 'Carga/Recarga', 'Retiro/Disposición',
+        'Compra con tarjeta', 'Transferencia entre tarjetas', 'Cancelación/Reembolso',
+    ],
+    CHEQUES_VIAJERO: [
+        'Emisión', 'Venta', 'Compra', 'Canje/Cobro', 'Reembolso',
+    ],
+    OPERACIONES_MUTUO: [
+        'Otorgamiento de préstamo', 'Pago de préstamo', 'Otorgamiento de crédito',
+        'Pago de crédito', 'Constitución de garantía', 'Liberación de garantía',
+    ],
+    INMUEBLES: [
+        'Compra', 'Venta', 'Intermediación en compra', 'Intermediación en venta',
+        'Desarrollo inmobiliario', 'Construcción', 'Permuta', 'Dación en pago',
+        'Cesión de derechos', 'Fideicomiso',
+    ],
+    METALES_PIEDRAS: [
+        'Compra', 'Venta', 'Empeño', 'Desempeño', 'Consignación',
+        'Intercambio', 'Donación recibida', 'Subasta',
+    ],
+    OBRAS_ARTE: [
+        'Compra', 'Venta', 'Subasta', 'Consignación', 'Permuta',
+        'Intermediación', 'Donación recibida',
+    ],
+    VEHICULOS: [
+        'Compra', 'Venta', 'Intermediación en compra', 'Intermediación en venta',
+        'Consignación', 'Permuta', 'Donación recibida', 'Importación',
+    ],
+    BLINDAJE: [
+        'Blindaje de vehículo', 'Blindaje de inmueble', 'Mantenimiento de blindaje',
+        'Reparación de blindaje', 'Certificación de blindaje',
+    ],
+    TRASLADO_VALORES: [
+        'Traslado de efectivo', 'Traslado de valores', 'Custodia de efectivo',
+        'Custodia de valores', 'Resguardo', 'Entrega a destino',
+    ],
+    SERVICIOS_FE_PUBLICA: [
+        'Compraventa de inmueble', 'Constitución de sociedad', 'Otorgamiento de poder',
+        'Constitución de fideicomiso', 'Cesión de derechos', 'Donación',
+        'Testamento', 'Protocolización', 'Ratificación de firmas',
+    ],
+    SERVICIOS_PROFESIONALES: [
+        'Compraventa de inmuebles', 'Administración de activos',
+        'Manejo de cuentas bancarias', 'Constitución de sociedades',
+        'Constitución de fideicomisos', 'Asesoría fiscal patrimonial',
+        'Asesoría legal patrimonial',
+    ],
+    ARRENDAMIENTO: [
+        'Arrendamiento', 'Subarrendamiento', 'Renovación de contrato',
+        'Depósito en garantía', 'Pago de renta mensual', 'Pago anticipado',
+    ],
+    ACTIVOS_VIRTUALES: [
+        'Compra', 'Venta', 'Intercambio (swap)', 'Depósito', 'Retiro',
+        'Transferencia', 'Conversión a moneda fiat', 'Conversión desde moneda fiat',
+    ],
+    CONSTITUCION_PERSONAS: [
+        'Constitución de sociedad', 'Constitución de fideicomiso',
+        'Modificación de escritura', 'Fusión', 'Escisión',
+        'Aumento de capital', 'Disminución de capital', 'Disolución/Liquidación',
+    ],
+    DEFAULT: [
+        'Compra', 'Venta', 'Depósito', 'Retiro', 'Otro',
+    ],
+};
+
+// ========================================
 // DEFINICIÓN DE COLUMNAS POR ACTIVIDAD
+// type: 'catalog' indica que el campo tiene valores predefinidos en TIPOS_OPERACION
 // ========================================
 
 const ACTIVITY_COLUMNS = {
     INMUEBLES: [
         { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
-        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'catalog', catalogKey: 'INMUEBLES' },
         { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
         { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
         { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
@@ -27,7 +105,7 @@ const ACTIVITY_COLUMNS = {
     ],
     VEHICULOS: [
         { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
-        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'catalog', catalogKey: 'VEHICULOS' },
         { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
         { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
         { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
@@ -38,7 +116,7 @@ const ACTIVITY_COLUMNS = {
     ],
     METALES_PIEDRAS: [
         { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
-        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'catalog', catalogKey: 'METALES_PIEDRAS' },
         { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
         { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
         { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
@@ -47,7 +125,7 @@ const ACTIVITY_COLUMNS = {
     ],
     ACTIVOS_VIRTUALES: [
         { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
-        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'catalog', catalogKey: 'ACTIVOS_VIRTUALES' },
         { key: 'montoMXN', label: 'Monto (MXN)', required: true, type: 'number' },
         { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
         { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
@@ -56,7 +134,7 @@ const ACTIVITY_COLUMNS = {
     ],
     JUEGOS_APUESTAS: [
         { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
-        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'catalog', catalogKey: 'JUEGOS_APUESTAS' },
         { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
         { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
         { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
@@ -65,7 +143,7 @@ const ACTIVITY_COLUMNS = {
     ],
     BLINDAJE: [
         { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
-        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'catalog', catalogKey: 'BLINDAJE' },
         { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
         { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
         { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
@@ -76,7 +154,7 @@ const ACTIVITY_COLUMNS = {
     ],
     TARJETAS_PREPAGO: [
         { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
-        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'catalog', catalogKey: 'TARJETAS_PREPAGO' },
         { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
         { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
         { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
@@ -86,7 +164,7 @@ const ACTIVITY_COLUMNS = {
     ],
     CHEQUES_VIAJERO: [
         { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
-        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'catalog', catalogKey: 'CHEQUES_VIAJERO' },
         { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
         { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
         { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
@@ -96,7 +174,7 @@ const ACTIVITY_COLUMNS = {
     ],
     OPERACIONES_MUTUO: [
         { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
-        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'catalog', catalogKey: 'OPERACIONES_MUTUO' },
         { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
         { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
         { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
@@ -106,7 +184,7 @@ const ACTIVITY_COLUMNS = {
     ],
     OBRAS_ARTE: [
         { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
-        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'catalog', catalogKey: 'OBRAS_ARTE' },
         { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
         { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
         { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
@@ -116,7 +194,7 @@ const ACTIVITY_COLUMNS = {
     ],
     TRASLADO_VALORES: [
         { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
-        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'catalog', catalogKey: 'TRASLADO_VALORES' },
         { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
         { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
         { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
@@ -126,7 +204,7 @@ const ACTIVITY_COLUMNS = {
     ],
     SERVICIOS_FE_PUBLICA: [
         { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
-        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'catalog', catalogKey: 'SERVICIOS_FE_PUBLICA' },
         { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
         { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
         { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
@@ -136,7 +214,7 @@ const ACTIVITY_COLUMNS = {
     ],
     SERVICIOS_PROFESIONALES: [
         { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
-        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'catalog', catalogKey: 'SERVICIOS_PROFESIONALES' },
         { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
         { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
         { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
@@ -145,7 +223,7 @@ const ACTIVITY_COLUMNS = {
     ],
     ARRENDAMIENTO: [
         { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
-        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'catalog', catalogKey: 'ARRENDAMIENTO' },
         { key: 'montoMensual', label: 'Monto Mensual (MXN)', required: true, type: 'number' },
         { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
         { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
@@ -155,7 +233,7 @@ const ACTIVITY_COLUMNS = {
     ],
     CONSTITUCION_PERSONAS: [
         { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
-        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'catalog', catalogKey: 'CONSTITUCION_PERSONAS' },
         { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
         { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
         { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
@@ -167,7 +245,7 @@ const ACTIVITY_COLUMNS = {
     // Plantilla genérica para otras actividades
     DEFAULT: [
         { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
-        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'catalog', catalogKey: 'DEFAULT' },
         { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
         { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
         { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
@@ -251,8 +329,17 @@ export const getTemplate = onCall(
             // Obtener columnas para esta actividad
             const columns = ACTIVITY_COLUMNS[activityType] || ACTIVITY_COLUMNS.DEFAULT;
 
+            // Obtener catálogo de tipos de operación
+            const catalogKey = columns.find(c => c.type === 'catalog')?.catalogKey || activityType;
+            const tiposOperacion = TIPOS_OPERACION[catalogKey] || TIPOS_OPERACION[activityType] || TIPOS_OPERACION.DEFAULT;
+
             // Crear workbook
             const wb = XLSX.utils.book_new();
+
+            // Crear hoja de catálogos (oculta, usada para validación de datos)
+            const catalogData = [['Tipos de Operación'], ...tiposOperacion.map(t => [t])];
+            const wsCatalog = XLSX.utils.aoa_to_sheet(catalogData);
+            wsCatalog['!cols'] = [{ wch: 35 }];
 
             // Crear hoja de datos con headers
             const headers = columns.map(col => col.label);
@@ -266,7 +353,32 @@ export const getTemplate = onCall(
             const ws = XLSX.utils.aoa_to_sheet(wsData);
 
             // Ajustar anchos de columna
-            ws['!cols'] = columns.map(() => ({ wch: 20 }));
+            ws['!cols'] = columns.map(col => ({
+                wch: col.type === 'catalog' ? 30 : 20
+            }));
+
+            // Agregar validación de datos para columnas de tipo 'catalog'
+            // Usamos una lista de valores directamente en la celda
+            const catalogColIndex = columns.findIndex(c => c.type === 'catalog');
+            if (catalogColIndex >= 0) {
+                // Crear data validation con lista de valores
+                const dvFormula = `"${tiposOperacion.join(',')}"`;
+                ws['!dataValidation'] = ws['!dataValidation'] || [];
+
+                // Aplicar validación a las filas 2-1001 (columna del catálogo)
+                const colLetter = String.fromCharCode(65 + catalogColIndex); // A=0, B=1, etc
+                ws['!dataValidation'].push({
+                    ref: `${colLetter}2:${colLetter}1001`,
+                    type: 'list',
+                    operator: 'between',
+                    formula1: dvFormula,
+                    showDropDown: true,
+                    showErrorMessage: true,
+                    errorTitle: 'Tipo de Operación Inválido',
+                    error: `Selecciona un tipo válido: ${tiposOperacion.join(', ')}`,
+                    errorStyle: 'warning',
+                });
+            }
 
             // Agregar hoja de instrucciones
             const instructionsData = [
@@ -276,12 +388,27 @@ export const getTemplate = onCall(
                 ['2. Formato de fecha: DD/MM/YYYY o YYYY-MM-DD'],
                 ['3. Formato de RFC: 12 caracteres (Persona Moral) o 13 caracteres (Persona Física)'],
                 ['4. Los montos deben ser numéricos sin símbolos de moneda'],
+                ['5. La columna "Tipo Operación" debe usar uno de los valores del catálogo'],
                 [''],
                 ['COLUMNAS OBLIGATORIAS:'],
-                ...columns.filter(c => c.required).map(c => [`- ${c.label}`]),
+                ...columns.filter(c => c.required).map(c => [`- ${c.label}${c.type === 'catalog' ? ' (ver catálogo abajo)' : ''}`]),
                 [''],
                 ['COLUMNAS OPCIONALES:'],
                 ...columns.filter(c => !c.required).map(c => [`- ${c.label}`]),
+                [''],
+                ['═══════════════════════════════════════════════'],
+                ['CATÁLOGO DE TIPOS DE OPERACIÓN'],
+                [`Actividad: ${activityType.replace(/_/g, ' ')}`],
+                ['═══════════════════════════════════════════════'],
+                [''],
+                ['Los siguientes son los tipos válidos de operación para esta actividad:'],
+                [''],
+                ...tiposOperacion.map((t, i) => [`${i + 1}. ${t}`]),
+                [''],
+                ['NOTA: En la hoja "Operaciones", la columna "Tipo Operación" tiene'],
+                ['un menú desplegable con estos valores. Seleccione el que corresponda.'],
+                ['Esto es requerido para clasificar correctamente la operación en el'],
+                ['aviso ante el SAT.'],
             ];
 
             const wsInstructions = XLSX.utils.aoa_to_sheet(instructionsData);
@@ -289,6 +416,7 @@ export const getTemplate = onCall(
 
             // Agregar hojas al workbook
             XLSX.utils.book_append_sheet(wb, ws, 'Operaciones');
+            XLSX.utils.book_append_sheet(wb, wsCatalog, 'Catálogos');
             XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instrucciones');
 
             // Generar archivo como buffer
@@ -457,6 +585,22 @@ export const processUpload = onCall(
                                 rowData[key] = Number(value);
                             }
                             break;
+
+                        case 'catalog': {
+                            const cleanValue = String(value).trim();
+                            const catKey = colDef.catalogKey || activityType;
+                            const validValues = TIPOS_OPERACION[catKey] || TIPOS_OPERACION.DEFAULT;
+                            // Buscar match case-insensitive
+                            const matched = validValues.find(v => v.toLowerCase() === cleanValue.toLowerCase());
+                            if (matched) {
+                                rowData[key] = matched; // Guardar con formato correcto del catálogo
+                            } else {
+                                // Advertencia pero no bloquear — guardar el valor y agregar warning
+                                rowData[key] = cleanValue;
+                                rowErrors.push(`Tipo de operación "${cleanValue}" no está en el catálogo. Valores válidos: ${validValues.join(', ')}`);
+                            }
+                            break;
+                        }
 
                         default:
                             rowData[key] = String(value).trim();
