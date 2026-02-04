@@ -1,0 +1,53 @@
+:root {
+    --primary-color: #2563eb;
+    --bg-color: #f8fafc;
+    --text-color: #1e293b;
+    --card-bg: #ffffff;
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+#app {
+    width: 100%;
+    max-width: 500px;
+    padding: 2rem;
+    text-align: center;
+}
+
+.card {
+    background: var(--card-bg);
+    padding: 2rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    margin-top: 2rem;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.btn-primary:hover {
+    opacity: 0.9;
+}
+
+code {
+    background: #e2e8f0;
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+}

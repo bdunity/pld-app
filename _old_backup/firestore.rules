@@ -1,0 +1,418 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ╔══════════════════════════════════════════════════════════════════════════╗
+    // ║  PLD BDU - FIRESTORE SECURITY RULES                                       ║
+    // ║  Multi-Tenant AML Compliance SaaS                                         ║
+    // ║  Version: 2.1.0 | Last Updated: 2026-01-25                                ║
+    // ╚══════════════════════════════════════════════════════════════════════════╝
+
+    // ============================================================================
+    // HELPER FUNCTIONS
+    // These functions use Firebase Auth Custom Claims for authorization.
+    // Custom Claims structure: { tenantId: "xxx", role: "ROLE_NAME", workspaces: ["ws1", "ws2"] }
+    // ============================================================================
+
+    // Check if the request comes from an authenticated user
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Get the user's tenant ID from Custom Claims
+    function getUserTenantId() {
+      return request.auth.token.tenantId;
+    }
+
+    // Get the user's role from Custom Claims
+    function getUserRole() {
+      return request.auth.token.role;
+    }
+
+    // Get the user's assigned workspaces array from Custom Claims
+    function getUserWorkspaces() {
+      return request.auth.token.workspaces;
+    }
+
+    // Check if user is SUPER_ADMIN (platform owner) - Enhanced with DB fallback
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        getUserRole() == 'SUPER_ADMIN' || 
+        getUserRole() == 'super_admin' || // Handle lowercase case
+        (exists(/databases/$(database)/documents/users/$(request.auth.token.email)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.role == 'super_admin')
+      );
+    }
+
+    // Check if user is COMPANY_ADMIN (tenant owner)
+    function isCompanyAdmin() {
+      return isAuthenticated() && getUserRole() == 'COMPANY_ADMIN';
+    }
+
+    // Check if user is COMPLIANCE_OFFICER
+    function isComplianceOfficer() {
+      return isAuthenticated() && getUserRole() == 'COMPLIANCE_OFFICER';
+    }
+
+    // Check if user is DATA_ENTRY
+    function isDataEntry() {
+      return isAuthenticated() && getUserRole() == 'DATA_ENTRY';
+    }
+
+    // Check if user belongs to the specified tenant
+    // CRITICAL: This is the core tenant isolation check
+    function belongsToTenant(tenantId) {
+      return isAuthenticated() && getUserTenantId() == tenantId;
+    }
+
+    // Check if user has access to the specified workspace
+    function hasWorkspaceAccess(workspaceId) {
+      return isAuthenticated() && (
+        isCompanyAdmin() || 
+        workspaceId in getUserWorkspaces()
+      );
+    }
+
+    // Check if the document was created by the current user
+    function isOwner() {
+      return resource.data.created_by == request.auth.uid;
+    }
+
+    // Check if the new document will be created by the current user
+    function willBeOwner() {
+      return request.resource.data.created_by == request.auth.uid;
+    }
+
+    // ============================================================================
+    // 1. TENANT COLLECTION RULES
+    // Path: /tenants/{tenantId}
+    // Policy: Strict tenant isolation. Only users belonging to the tenant OR
+    //         SUPER_ADMIN can access.
+    // ============================================================================
+    match /tenants/{tenantId} {
+      
+      // READ: User must belong to this tenant OR be SUPER_ADMIN
+      allow read: if isSuperAdmin() || belongsToTenant(tenantId);
+      
+      // CREATE: Only SUPER_ADMIN can create new tenants (via admin panel)
+      allow create: if isSuperAdmin();
+      
+      // UPDATE: COMPANY_ADMIN of this tenant OR SUPER_ADMIN
+      allow update: if isSuperAdmin() || (belongsToTenant(tenantId) && isCompanyAdmin());
+      
+      // DELETE: Only SUPER_ADMIN (and should be soft-delete in practice)
+      allow delete: if isSuperAdmin();
+
+      // ========================================================================
+      // 1.1 MEMBERS SUB-COLLECTION (if used for tenant-level user references)
+      // Path: /tenants/{tenantId}/members/{memberId}
+      // ========================================================================
+      match /members/{memberId} {
+        allow read: if isSuperAdmin() || belongsToTenant(tenantId);
+        allow write: if isSuperAdmin() || (belongsToTenant(tenantId) && isCompanyAdmin());
+      }
+
+      // ========================================================================
+      // 2. WORKSPACE COLLECTION RULES
+      // Path: /tenants/{tenantId}/workspaces/{workspaceId}
+      // Policy: Workspace-level isolation within a tenant.
+      // ========================================================================
+      match /workspaces/{workspaceId} {
+        
+        // READ: Must belong to tenant AND have workspace access
+        allow read: if isSuperAdmin() || (
+          belongsToTenant(tenantId) && hasWorkspaceAccess(workspaceId)
+        );
+        
+        // CREATE/UPDATE: Only COMPANY_ADMIN of this tenant can manage workspaces
+        allow create, update: if isSuperAdmin() || (
+          belongsToTenant(tenantId) && isCompanyAdmin()
+        );
+        
+        // DELETE: Only SUPER_ADMIN (workspaces should be archived, not deleted)
+        allow delete: if isSuperAdmin();
+
+        // ======================================================================
+        // 2.1 RECORDS SUB-COLLECTION (Operations/Transactions)
+        // Path: /tenants/{tenantId}/workspaces/{workspaceId}/records/{recordId}
+        // Policy: Role-based access within workspace.
+        // - DATA_ENTRY: Can CREATE and READ their own records only
+        // - COMPLIANCE_OFFICER: Can READ all, UPDATE status fields
+        // - COMPANY_ADMIN: Full access within tenant
+        // ======================================================================
+        match /records/{recordId} {
+          
+          // READ Rules:
+          // - SUPER_ADMIN: Can read all (support)
+          // - COMPANY_ADMIN: Can read all in their tenant
+          // - COMPLIANCE_OFFICER: Can read all in their assigned workspaces
+          // - DATA_ENTRY: Can only read records they created
+          allow read: if isSuperAdmin() || (
+            belongsToTenant(tenantId) && hasWorkspaceAccess(workspaceId) && (
+              isCompanyAdmin() ||
+              isComplianceOfficer() ||
+              (isDataEntry() && isOwner())
+            )
+          );
+          
+          // CREATE Rules:
+          // - User must belong to tenant and have workspace access
+          // - User must set themselves as created_by
+          // - DATA_ENTRY, COMPLIANCE_OFFICER, and COMPANY_ADMIN can create
+          allow create: if isSuperAdmin() || (
+            belongsToTenant(tenantId) && 
+            hasWorkspaceAccess(workspaceId) && 
+            willBeOwner() &&
+            (isDataEntry() || isComplianceOfficer() || isCompanyAdmin())
+          );
+          
+          // UPDATE Rules:
+          // - DATA_ENTRY: Can only update their own records, and only if status is 'draft'
+          // - COMPLIANCE_OFFICER: Can update status and add notes to any record
+          // - COMPANY_ADMIN: Full update access
+          // - Cannot change created_by or created_at fields
+          allow update: if isSuperAdmin() || (
+            belongsToTenant(tenantId) && 
+            hasWorkspaceAccess(workspaceId) && (
+              isCompanyAdmin() ||
+              isComplianceOfficer() ||
+              (isDataEntry() && isOwner() && resource.data.status == 'draft')
+            ) &&
+            // Immutable fields protection
+            request.resource.data.created_by == resource.data.created_by &&
+            request.resource.data.created_at == resource.data.created_at
+          );
+          
+          // DELETE: Disabled - Records should never be deleted (audit requirement)
+          allow delete: if false;
+        }
+
+        // ======================================================================
+        // 2.2 ALERTS SUB-COLLECTION
+        // Path: /tenants/{tenantId}/workspaces/{workspaceId}/alerts/{alertId}
+        // Policy: Compliance officers and admins can manage alerts
+        // ======================================================================
+        match /alerts/{alertId} {
+          
+          // READ: Anyone with workspace access can see alerts
+          allow read: if isSuperAdmin() || (
+            belongsToTenant(tenantId) && hasWorkspaceAccess(workspaceId)
+          );
+          
+          // CREATE: System or Compliance Officer/Admin can create alerts
+          allow create: if isSuperAdmin() || (
+            belongsToTenant(tenantId) && 
+            hasWorkspaceAccess(workspaceId) && 
+            (isComplianceOfficer() || isCompanyAdmin())
+          );
+          
+          // UPDATE: Only Compliance Officer or Admin can resolve/update alerts
+          allow update: if isSuperAdmin() || (
+            belongsToTenant(tenantId) && 
+            hasWorkspaceAccess(workspaceId) && 
+            (isComplianceOfficer() || isCompanyAdmin())
+          );
+          
+          // DELETE: Disabled - Alerts are audit trail
+          allow delete: if false;
+        }
+
+        // ======================================================================
+        // 2.3 XML HISTORY SUB-COLLECTION
+        // Path: /tenants/{tenantId}/workspaces/{workspaceId}/xml_history/{xmlId}
+        // Policy: Read-only after creation (immutable audit trail)
+        // ======================================================================
+        match /xml_history/{xmlId} {
+          
+          // READ: Anyone with workspace access
+          allow read: if isSuperAdmin() || (
+            belongsToTenant(tenantId) && hasWorkspaceAccess(workspaceId)
+          );
+          
+          // CREATE: Compliance Officer or Admin can generate XMLs
+          allow create: if isSuperAdmin() || (
+            belongsToTenant(tenantId) && 
+            hasWorkspaceAccess(workspaceId) && 
+            (isComplianceOfficer() || isCompanyAdmin())
+          );
+          
+          // UPDATE/DELETE: PROHIBITED - XML history is immutable for SAT compliance
+          allow update, delete: if false;
+        }
+      }
+    }
+
+    // ============================================================================
+    // 3. USERS COLLECTION (Global Directory)
+    // Path: /users/{userId}
+    // Policy: Users can read their own profile. Admins can manage users.
+    // ============================================================================
+    match /users/{userId} {
+      // READ: Allow authenticated users to read user list (required for dashboard counts)
+      allow read: if isAuthenticated(); 
+      
+      // CREATE: Only SUPER_ADMIN or COMPANY_ADMIN can create users
+      allow create: if isSuperAdmin() || (
+        isCompanyAdmin() && 
+        request.resource.data.tenant_id == getUserTenantId()
+      );
+      
+      // UPDATE:
+      // - Own profile: Limited fields (display_name, avatar, phone)
+      // - Admin: Can update role, permissions, and status
+      allow update: if isAuthenticated() && (
+        // User updating their own non-sensitive fields
+        (request.auth.uid == userId && 
+         request.resource.data.role == resource.data.role &&
+         request.resource.data.tenant_id == resource.data.tenant_id &&
+         request.resource.data.permissions == resource.data.permissions) ||
+        // SUPER_ADMIN can update anything
+        isSuperAdmin() ||
+        // COMPANY_ADMIN can update users in their tenant
+        (isCompanyAdmin() && resource.data.tenant_id == getUserTenantId())
+      );
+      
+      // DELETE: Only SUPER_ADMIN (should be deactivation, not deletion)
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================================================
+    // 3.1 AUDIT LOGS (System Activity)
+    // Path: /audit_logs/{logId}
+    // Policy: Readable by authed users (for history), Writable by logic
+    // ============================================================================
+    match /audit_logs/{logId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // Allow users to write their own logs (login/logout)
+    }
+
+    // ============================================================================
+    // 4. USAGE LOGS COLLECTION (Billing Audit Trail)
+    // Path: /usage_logs/{logId}
+    // Policy: IMMUTABLE - Only create allowed. No updates, no deletes.
+    // This protects billing integrity.
+    // ============================================================================
+    match /usage_logs/{logId} {
+      
+      // READ: SUPER_ADMIN or COMPANY_ADMIN of the tenant
+      allow read: if isSuperAdmin() || (
+        isCompanyAdmin() && resource.data.tenant_id == getUserTenantId()
+      );
+      
+      // CREATE: Authenticated users can log actions (server should validate)
+      allow create: if isAuthenticated() && (
+        request.resource.data.user_id == request.auth.uid &&
+        request.resource.data.timestamp == request.time
+      );
+      
+      // UPDATE/DELETE: ABSOLUTELY PROHIBITED - Audit immutability
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // 5. GLOBAL CONFIG COLLECTION (Read-Only Catalogs)
+    // Path: /global_config/{configId}
+    // Policy: READ-ONLY for all authenticated users.
+    // ============================================================================
+    match /global_config/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+    
+    // ============================================================================
+    // 5.0 TENANT CONFIGURATION (Per-Company Settings)
+    // Path: /config/{configId}
+    // Policy: Allow authenticated users to load their company config
+    // ============================================================================
+    match /config/{configId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ============================================================================
+    // 5.1 GIROS CATALOG (Legacy/Root)
+    // Path: /giros/{giroId}
+    // Policy: Catalogs are public to all authenticated users
+    // ============================================================================
+    match /giros/{giroId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+
+    // ============================================================================
+    // 5.2 LEGACY OPERATIONS & CARGAS (Legacy/Root)
+    // Path: /operations, /cargas
+    // Policy: Allow authenticated access for dashboard stats
+    // ============================================================================
+    match /operations/{opId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /cargas/{cargaId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ============================================================================
+    // 5.3 KYC & NOTIFICATIONS (Legacy/Root)
+    // Path: /kyc, /notifications
+    // Policy: Allow authenticated access
+    // ============================================================================
+    match /kyc/{kycId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /notifications/{notifId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ============================================================================
+    // 6. PENDING INVITES COLLECTION
+    // Path: /pending_invites/{inviteId}
+    // Policy: Admins can create invites, invitees can read to verify
+    // ============================================================================
+    match /pending_invites/{inviteId} {
+      
+      // READ: Anyone with the invite ID (for registration verification)
+      allow read: if true;
+      
+      // CREATE: COMPANY_ADMIN or SUPER_ADMIN
+      allow create: if isSuperAdmin() || isCompanyAdmin();
+      
+      // UPDATE: Only to mark as used
+      allow update: if request.resource.data.used == true && resource.data.used == false;
+      
+      // DELETE: Only SUPER_ADMIN (cleanup)
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================================================
+    // 7. EMPRESAS COLLECTION (Legacy - For Migration)
+    // Path: /empresas/{empresaId}
+    // Policy: Allow read for all authenticated users to enable dashboard boot
+    // ============================================================================
+    match /empresas/{empresaId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin() || (
+        isCompanyAdmin() && getUserTenantId() == empresaId
+      );
+      
+      // Sub-collections under empresas (legacy)
+      match /{subcollection}/{docId} {
+        allow read: if isSuperAdmin() || (
+          isAuthenticated() && getUserTenantId() == empresaId
+        );
+        allow write: if isSuperAdmin() || (
+          isAuthenticated() && 
+          getUserTenantId() == empresaId &&
+          (isCompanyAdmin() || isComplianceOfficer())
+        );
+      }
+    }
+
+    // ============================================================================
+    // CATCH-ALL RULE
+    // Deny everything not explicitly allowed above
+    // This ensures no accidental data exposure
+    // ============================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
