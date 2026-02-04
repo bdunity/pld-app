@@ -60,7 +60,7 @@ export function Dashboard() {
       setOperations(opsData);
 
       // Fetch XML generation history
-      const xmlRef = collection(db, 'tenants', tenantId, 'xmlHistory');
+      const xmlRef = collection(db, 'tenants', tenantId, 'xml_generations');
       const xmlQuery = query(xmlRef, orderBy('generatedAt', 'desc'), limit(20));
       const xmlSnap = await getDocs(xmlQuery);
       const xmlData = xmlSnap.docs.map(d => ({ id: d.id, ...d.data() }));

@@ -57,7 +57,7 @@ export function RiskEnginePage() {
 
   // Filters
   const [filterRisk, setFilterRisk] = useState('ALL');
-  const [filterStatus, setFilterStatus] = useState('ALL');
+  const [filterStatus, setFilterStatus] = useState('PENDING_ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState('riskScore');
   const [sortDir, setSortDir] = useState('desc');
@@ -117,7 +117,12 @@ export function RiskEnginePage() {
     }
 
     // Filter by status
-    if (filterStatus !== 'ALL') {
+    if (filterStatus === 'PENDING_ALL') {
+      result = result.filter(op => {
+        const status = op.status || 'PENDING';
+        return status !== 'REPORTED';
+      });
+    } else if (filterStatus !== 'ALL') {
       result = result.filter(op => {
         const status = op.status || 'PENDING';
         return status === filterStatus;
@@ -270,29 +275,29 @@ export function RiskEnginePage() {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <Card
-          className={`p-4 text-center cursor-pointer transition-all ${filterRisk === 'ALL' && filterStatus === 'ALL' ? 'ring-2 ring-primary-400' : 'hover:shadow-md'}`}
-          onClick={() => { setFilterRisk('ALL'); setFilterStatus('ALL'); }}
+          className={`p-4 text-center cursor-pointer transition-all ${filterRisk === 'ALL' && filterStatus === 'PENDING_ALL' ? 'ring-2 ring-primary-400' : 'hover:shadow-md'}`}
+          onClick={() => { setFilterRisk('ALL'); setFilterStatus('PENDING_ALL'); }}
         >
           <p className="text-2xl font-bold text-secondary-900">{kpis.total}</p>
           <p className="text-xs text-secondary-500">Total</p>
         </Card>
         <Card
           className={`p-4 text-center cursor-pointer transition-all ${filterRisk === 'HIGH' ? 'ring-2 ring-red-400' : 'hover:shadow-md'}`}
-          onClick={() => { setFilterRisk('HIGH'); setFilterStatus('ALL'); }}
+          onClick={() => { setFilterRisk('HIGH'); setFilterStatus('PENDING_ALL'); }}
         >
           <p className="text-2xl font-bold text-red-700">{kpis.high}</p>
           <p className="text-xs text-red-600">Riesgo Alto</p>
         </Card>
         <Card
           className={`p-4 text-center cursor-pointer transition-all ${filterRisk === 'MEDIUM' ? 'ring-2 ring-amber-400' : 'hover:shadow-md'}`}
-          onClick={() => { setFilterRisk('MEDIUM'); setFilterStatus('ALL'); }}
+          onClick={() => { setFilterRisk('MEDIUM'); setFilterStatus('PENDING_ALL'); }}
         >
           <p className="text-2xl font-bold text-amber-700">{kpis.medium}</p>
           <p className="text-xs text-amber-600">Riesgo Medio</p>
         </Card>
         <Card
           className={`p-4 text-center cursor-pointer transition-all ${filterRisk === 'LOW' ? 'ring-2 ring-green-400' : 'hover:shadow-md'}`}
-          onClick={() => { setFilterRisk('LOW'); setFilterStatus('ALL'); }}
+          onClick={() => { setFilterRisk('LOW'); setFilterStatus('PENDING_ALL'); }}
         >
           <p className="text-2xl font-bold text-green-700">{kpis.low}</p>
           <p className="text-xs text-green-600">Riesgo Bajo</p>
@@ -300,6 +305,7 @@ export function RiskEnginePage() {
         <Card
           className={`p-4 text-center cursor-pointer transition-all ${filterStatus === 'PENDING_REPORT' ? 'ring-2 ring-red-400' : 'hover:shadow-md'}`}
           onClick={() => { setFilterStatus('PENDING_REPORT'); setFilterRisk('ALL'); }}
+
         >
           <p className="text-2xl font-bold text-red-700">{kpis.pendingReport}</p>
           <p className="text-xs text-red-600">Pend. Reporte</p>
@@ -346,6 +352,7 @@ export function RiskEnginePage() {
             onChange={(e) => setFilterStatus(e.target.value)}
             className="px-4 py-2.5 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white text-sm"
           >
+            <option value="PENDING_ALL">Pendientes (todas)</option>
             <option value="ALL">Todos los estatus</option>
             <option value="PENDING">Pendiente</option>
             <option value="PENDING_REVIEW">En revisión</option>

@@ -65,8 +65,10 @@ service cloud.firestore {
       match /operations/{operationId} {
         // Users can read operations from their own tenant
         allow read: if isAuthenticated() && (getUserTenantId() == tenantId || request.auth.uid == tenantId);
-        // Only backend (Cloud Functions with Admin SDK) can write
-        allow write: if false;
+        // Backend creates via Admin SDK; users can update status (risk review actions)
+        allow create: if false;
+        allow update: if isAuthenticated() && (getUserTenantId() == tenantId || request.auth.uid == tenantId);
+        allow delete: if false;
       }
 
       // Subcollection: XML Generations history
