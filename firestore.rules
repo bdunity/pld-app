@@ -49,17 +49,35 @@ service cloud.firestore {
       // Only superadmin can list all tenants
       allow list: if isSuperAdmin();
 
-      // Users can read their own tenant
-      allow get: if isAuthenticated() && getUserTenantId() == tenantId;
+      // Users can read their own tenant (by custom claim OR by uid for onboarding)
+      allow get: if isAuthenticated() && (getUserTenantId() == tenantId || request.auth.uid == tenantId);
 
-      // Only superadmin can create/update/delete tenants
-      allow create, update, delete: if isSuperAdmin();
+      // Users can create their own tenant during onboarding (tenantId == uid)
+      allow create: if isAuthenticated() && request.auth.uid == tenantId;
+
+      // Users can update their own tenant (by custom claim OR uid)
+      allow update: if isAuthenticated() && (getUserTenantId() == tenantId || request.auth.uid == tenantId);
+
+      // Only superadmin can delete tenants
+      allow delete: if isSuperAdmin();
 
       // Subcollection: Operations (uploaded data from Excel)
       match /operations/{operationId} {
         // Users can read operations from their own tenant
-        allow read: if isAuthenticated() && getUserTenantId() == tenantId;
+        allow read: if isAuthenticated() && (getUserTenantId() == tenantId || request.auth.uid == tenantId);
         // Only backend (Cloud Functions with Admin SDK) can write
+        allow write: if false;
+      }
+
+      // Subcollection: XML Generations history
+      match /xml_generations/{genId} {
+        allow read: if isAuthenticated() && (getUserTenantId() == tenantId || request.auth.uid == tenantId);
+        allow write: if false;
+      }
+
+      // Subcollection: Upload History
+      match /uploadHistory/{histId} {
+        allow read: if isAuthenticated() && (getUserTenantId() == tenantId || request.auth.uid == tenantId);
         allow write: if false;
       }
     }
