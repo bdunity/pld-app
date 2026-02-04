@@ -3,19 +3,8 @@
  * Backend serverless para la plataforma de cumplimiento PLD
  */
 
-import { initializeApp } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { getStorage } from 'firebase-admin/storage';
-
-// Initialize Firebase Admin
-initializeApp();
-
-// Export Firestore and Storage for use in other modules
-export const db = getFirestore();
-export const storage = getStorage();
-
-// Import and re-export triggers
-export { onAcknowledgmentUpload } from './triggers/onAcknowledgmentUpload.js';
+// Storage trigger (requires Storage to be set up in Firebase Console first)
+// export { onAcknowledgmentUpload } from './triggers/onAcknowledgmentUpload.js';
 
 // Import and re-export webhooks
 export { onOpenpayWebhook } from './triggers/webhooks.js';
@@ -107,3 +96,13 @@ export {
   processUpload,
 } from './api/ingest.js';
 
+// Import and re-export XML Generator functions
+export {
+  generateXML,
+  getXMLHistory,
+} from './api/xml-generator.js';
+
+// Import and re-export XML Validator functions
+export {
+  validateXML,
+} from './api/xml-validator.js';
