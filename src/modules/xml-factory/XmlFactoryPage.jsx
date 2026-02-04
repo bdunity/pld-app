@@ -57,10 +57,11 @@ export function XmlFactoryPage() {
 
   const [error, setError] = useState('');
 
+  // Obtener actividades del tenant (si no hay configuradas, mostrar todas para demo/testing)
   const tenantActivities = tenantData?.actividadesVulnerables || [];
-  const availableActivities = ACTIVIDADES_VULNERABLES.filter(
-    (av) => tenantActivities.includes(av.id)
-  );
+  const availableActivities = tenantActivities.length > 0
+    ? ACTIVIDADES_VULNERABLES.filter((av) => tenantActivities.includes(av.id))
+    : ACTIVIDADES_VULNERABLES;
 
   useEffect(() => {
     if (selectedActivity && selectedYear && selectedMonth && user) {

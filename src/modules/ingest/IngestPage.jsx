@@ -54,11 +54,11 @@ export function IngestPage() {
   const [error, setError] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
 
-  // Obtener actividades del tenant
+  // Obtener actividades del tenant (si no hay configuradas, mostrar todas para demo/testing)
   const tenantActivities = tenantData?.actividadesVulnerables || [];
-  const availableActivities = ACTIVIDADES_VULNERABLES.filter(
-    (av) => tenantActivities.includes(av.id)
-  );
+  const availableActivities = tenantActivities.length > 0
+    ? ACTIVIDADES_VULNERABLES.filter((av) => tenantActivities.includes(av.id))
+    : ACTIVIDADES_VULNERABLES;
 
   // Handler para descargar plantilla
   const handleDownloadTemplate = async () => {
@@ -276,9 +276,9 @@ export function IngestPage() {
                 </option>
               ))}
             </select>
-            {availableActivities.length === 0 && (
-              <p className="text-xs text-amber-600 mt-1">
-                No hay actividades configuradas en tu perfil
+            {tenantActivities.length === 0 && (
+              <p className="text-xs text-blue-600 mt-1">
+                Mostrando todas las actividades (modo demo)
               </p>
             )}
           </div>
