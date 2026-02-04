@@ -1,11 +1,16 @@
 /**
- * PLD BDU - Motor de Generación XML para SAT
- * Genera archivos XML válidos según esquemas XSD oficiales del SAT/UIF
- * para todas las 15 actividades vulnerables (LFPIORPI Art. 17)
+ * PLD BDU — Motor de Generación XML para SAT/UIF
  *
- * Soporta múltiples reportes por actividad:
+ * Genera archivos XML válidos según esquemas XSD oficiales del SAT/UIF
+ * para las 15 actividades vulnerables (LFPIORPI Art. 17).
+ *
+ * ETAPA 3 — Mejoras:
+ * - Sanitización SAT: MAYÚSCULAS sin acentos
+ * - Agrupación por persona (persona_aviso con múltiples detalle_operaciones)
+ * - Mapeo de códigos numéricos (tipo_operacion, moneda, instrumento_monetario)
+ * - Nodo beneficiario_controlador cuando actua_nombre_propio = NO
+ * - Informe en Ceros (sin operaciones)
  * - JUEGOS_APUESTAS → 2 XMLs: depósitos + retiros/premios
- * - Demás actividades → 1 XML por periodo
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
@@ -97,13 +102,47 @@ const XML_SCHEMAS = {
 };
 
 // Tipos de operación para JUEGOS_APUESTAS (split en 2 reportes)
-const JUEGOS_DEPOSITOS = ['deposito', 'compra', 'apuesta', 'ingreso', 'carga'];
-const JUEGOS_RETIROS = ['retiro', 'premio', 'cobro', 'pago', 'devolucion'];
+const JUEGOS_DEPOSITOS = ['compra', 'apuesta', 'deposito', 'carga'];
+const JUEGOS_RETIROS = ['pago de premios', 'retiro', 'cobro', 'reembolso'];
+
 
 // ============================================================================
-// FUNCIONES DE FORMATEO Y SANITIZACIÓN
+// FUNCIONES DE FORMATEO Y SANITIZACIÓN SAT
 // ============================================================================
 
+/**
+ * SAT Text Sanitization:
+ * - Uppercase
+ * - Remove accents (NFD decomposition)
+ * - Remove control characters
+ * - Trim + max length
+ */
+function sanitizeTextSAT(value, maxLength = 0) {
+    if (!value) return '';
+    let text = String(value)
+        .toUpperCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')  // Remove accent marks
+        .replace(/[\x00-\x1F\x7F]/g, '') // Remove control chars
+        .replace(/[&<>"']/g, '')          // Remove XML-unsafe chars
+        .trim();
+    if (maxLength > 0 && text.length > maxLength) {
+        text = text.substring(0, maxLength);
+    }
+    return text;
+}
+
+/**
+ * Sanitize RFC: uppercase, only valid chars, max 13
+ */
+function sanitizeRFC(value) {
+    if (!value) return '';
+    return String(value).toUpperCase().replace(/[^A-ZÑ&0-9]/g, '').slice(0, 13);
+}
+
+/**
+ * Format date to YYYYMMDD (SAT strict format)
+ */
 function formatDateSAT(value) {
     if (!value) return '';
     let date;
@@ -112,6 +151,11 @@ function formatDateSAT(value) {
     } else if (value instanceof Date) {
         date = value;
     } else if (typeof value === 'string') {
+        // Handle YYYY-MM-DD format
+        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            const [y, m, d] = value.split('-');
+            return `${y}${m}${d}`;
+        }
         date = new Date(value);
     } else {
         return '';
@@ -123,30 +167,57 @@ function formatDateSAT(value) {
     return `${year}${month}${day}`;
 }
 
+/**
+ * Format monetary amount: no commas, 2 decimal places
+ */
 function formatMonto(value) {
     const num = parseFloat(value);
     if (isNaN(num)) return '0.00';
     return num.toFixed(2);
 }
 
-function sanitizeText(value, maxLength = 0) {
+/**
+ * Extract numeric code from catalog value like "1-Efectivo" → "1"
+ */
+function extractCatalogCode(value) {
     if (!value) return '';
-    let text = String(value)
-        .replace(/[\x00-\x1F\x7F]/g, '')
-        .trim();
-    if (maxLength > 0 && text.length > maxLength) {
-        text = text.substring(0, maxLength);
-    }
-    return text;
+    const str = String(value).trim();
+    const match = str.match(/^(\d+)/);
+    return match ? match[1] : str;
 }
 
-function sanitizeRFC(value) {
-    if (!value) return '';
-    return String(value).toUpperCase().replace(/[^A-ZÑ&0-9]/g, '').slice(0, 13);
+/**
+ * Extract moneda code: "1-MXN" → "MXN", "2-USD" → "USD"
+ * Falls back to just the code if no label part
+ */
+function extractMonedaLabel(value) {
+    if (!value) return 'MXN';
+    const str = String(value).trim();
+    const match = str.match(/^\d+-(.+)$/);
+    return match ? match[1].toUpperCase().trim() : str.toUpperCase();
 }
+
+/**
+ * Determine person type from catalog value or RFC length
+ */
+function getPersonTypeCode(tipoPersona, rfc) {
+    if (tipoPersona) {
+        const clean = String(tipoPersona).toLowerCase().trim();
+        if (clean.includes('moral') || clean === '2' || clean.startsWith('2-')) return '2';
+        if (clean.includes('física') || clean.includes('fisica') || clean === '1' || clean.startsWith('1-')) return '1';
+    }
+    // Fallback: RFC length
+    if (rfc) {
+        const cleanRfc = sanitizeRFC(rfc);
+        return cleanRfc.length === 12 ? '2' : '1';
+    }
+    return '1';
+}
+
 
 // ============================================================================
 // CLOUD FUNCTION: generateXML
+// Supports both normal reports and "Informe en Ceros"
 // ============================================================================
 
 export const generateXML = onCall(
@@ -160,7 +231,7 @@ export const generateXML = onCall(
             throw new HttpsError('unauthenticated', 'Debes iniciar sesión');
         }
 
-        const { activityType, periodYear, periodMonth } = request.data;
+        const { activityType, periodYear, periodMonth, informeEnCeros = false } = request.data;
 
         if (!activityType || !periodYear || !periodMonth) {
             throw new HttpsError('invalid-argument', 'Actividad, año y mes son requeridos');
@@ -182,7 +253,35 @@ export const generateXML = onCall(
             }
             const tenantData = tenantDoc.data();
 
-            // Consultar operaciones del periodo
+            // ── INFORME EN CEROS ──
+            if (informeEnCeros) {
+                const xmlContent = buildXMLEnCeros(schema, tenantData, periodYear, periodMonth);
+                const fileName = `${sanitizeRFC(tenantData.rfc)}_${activityType}_CEROS_${periodYear}${String(periodMonth).padStart(2, '0')}.xml`;
+
+                const genId = await saveGenerationHistory(
+                    tenantId, userId, activityType, periodYear, periodMonth, 0, 1, true
+                );
+
+                logger.log('XML en ceros generated:', { tenantId, activityType });
+
+                return {
+                    success: true,
+                    multipleReports: false,
+                    informeEnCeros: true,
+                    reports: [{
+                        type: 'CEROS',
+                        label: 'Informe en Ceros',
+                        fileName,
+                        xmlBase64: Buffer.from(xmlContent, 'utf-8').toString('base64'),
+                        recordCount: 0,
+                        operationIds: [],
+                    }],
+                    totalOperations: 0,
+                    generationId: genId,
+                };
+            }
+
+            // ── INFORME CON OPERACIONES ──
             const opsSnapshot = await db
                 .collection('tenants').doc(tenantId)
                 .collection('operations')
@@ -192,38 +291,33 @@ export const generateXML = onCall(
                 .get();
 
             if (opsSnapshot.empty) {
-                throw new HttpsError('not-found', 'No hay operaciones para el periodo seleccionado');
+                throw new HttpsError('not-found', 'No hay operaciones para el periodo seleccionado. Usa "Informe en Ceros" si no hubo operaciones.');
             }
 
             const allOperations = opsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            // Para JUEGOS_APUESTAS generar 2 reportes
+            // Para JUEGOS_APUESTAS generar 2 reportes separados
             if (activityType === 'JUEGOS_APUESTAS') {
-                const depositos = allOperations.filter(op => {
-                    const tipo = (op.tipoOperacion || '').toLowerCase();
-                    return JUEGOS_DEPOSITOS.some(d => tipo.includes(d));
-                });
-                const retiros = allOperations.filter(op => {
-                    const tipo = (op.tipoOperacion || '').toLowerCase();
-                    return JUEGOS_RETIROS.some(r => tipo.includes(r));
-                });
-                // Operaciones sin clasificar van a depósitos
-                const sinClasificar = allOperations.filter(op => {
-                    const tipo = (op.tipoOperacion || '').toLowerCase();
-                    return !JUEGOS_DEPOSITOS.some(d => tipo.includes(d)) &&
-                           !JUEGOS_RETIROS.some(r => tipo.includes(r));
-                });
-                depositos.push(...sinClasificar);
+                const depositos = [];
+                const retiros = [];
+
+                for (const op of allOperations) {
+                    const tipoOp = (op.tipoOperacion || '').toLowerCase();
+                    if (JUEGOS_RETIROS.some(r => tipoOp.includes(r))) {
+                        retiros.push(op);
+                    } else {
+                        depositos.push(op);
+                    }
+                }
 
                 const results = [];
 
                 if (depositos.length > 0) {
                     const xmlDepositos = buildXMLDocument(activityType, schema, tenantData, depositos, periodYear, periodMonth);
-                    const fileNameDep = `${sanitizeRFC(tenantData.rfc)}_${activityType}_DEPOSITOS_${periodYear}${String(periodMonth).padStart(2, '0')}.xml`;
                     results.push({
                         type: 'DEPOSITOS',
-                        label: 'Depósitos / Apuestas',
-                        fileName: fileNameDep,
+                        label: 'Depositos / Apuestas',
+                        fileName: `${sanitizeRFC(tenantData.rfc)}_JYS_DEPOSITOS_${periodYear}${String(periodMonth).padStart(2, '0')}.xml`,
                         xmlBase64: Buffer.from(xmlDepositos, 'utf-8').toString('base64'),
                         recordCount: depositos.length,
                         operationIds: depositos.map(o => o.id),
@@ -232,49 +326,44 @@ export const generateXML = onCall(
 
                 if (retiros.length > 0) {
                     const xmlRetiros = buildXMLDocument(activityType, schema, tenantData, retiros, periodYear, periodMonth);
-                    const fileNameRet = `${sanitizeRFC(tenantData.rfc)}_${activityType}_RETIROS_${periodYear}${String(periodMonth).padStart(2, '0')}.xml`;
                     results.push({
                         type: 'RETIROS',
                         label: 'Retiros / Premios',
-                        fileName: fileNameRet,
+                        fileName: `${sanitizeRFC(tenantData.rfc)}_JYS_RETIROS_${periodYear}${String(periodMonth).padStart(2, '0')}.xml`,
                         xmlBase64: Buffer.from(xmlRetiros, 'utf-8').toString('base64'),
                         recordCount: retiros.length,
                         operationIds: retiros.map(o => o.id),
                     });
                 }
 
-                // Marcar operaciones como REPORTED
                 await markOperationsReported(tenantId, allOperations.map(o => o.id));
+                const genId = await saveGenerationHistory(tenantId, userId, activityType, periodYear, periodMonth, allOperations.length, results.length, false);
 
-                // Registrar en historial
-                const genId = await saveGenerationHistory(tenantId, userId, activityType, periodYear, periodMonth, allOperations.length, results.length);
-
-                logger.log('XML generated (JUEGOS - multi):', { tenantId, activityType, total: allOperations.length, reports: results.length });
+                logger.log('XML generated (JUEGOS - multi):', { tenantId, total: allOperations.length, reports: results.length });
 
                 return {
                     success: true,
                     multipleReports: true,
+                    informeEnCeros: false,
                     reports: results,
                     totalOperations: allOperations.length,
                     generationId: genId,
                 };
             }
 
-            // Actividades normales: 1 solo XML
+            // ── Actividades normales: 1 solo XML ──
             const xmlContent = buildXMLDocument(activityType, schema, tenantData, allOperations, periodYear, periodMonth);
-            const fileName = `${sanitizeRFC(tenantData.rfc)}_${activityType}_${periodYear}${String(periodMonth).padStart(2, '0')}.xml`;
+            const fileName = `${sanitizeRFC(tenantData.rfc)}_${schema.sat_code}_${periodYear}${String(periodMonth).padStart(2, '0')}.xml`;
 
-            // Marcar operaciones como REPORTED
             await markOperationsReported(tenantId, allOperations.map(o => o.id));
-
-            // Registrar en historial
-            const genId = await saveGenerationHistory(tenantId, userId, activityType, periodYear, periodMonth, allOperations.length, 1);
+            const genId = await saveGenerationHistory(tenantId, userId, activityType, periodYear, periodMonth, allOperations.length, 1, false);
 
             logger.log('XML generated:', { tenantId, activityType, records: allOperations.length });
 
             return {
                 success: true,
                 multipleReports: false,
+                informeEnCeros: false,
                 reports: [{
                     type: 'UNICO',
                     label: 'Reporte Completo',
@@ -334,17 +423,16 @@ export const getXMLHistory = onCall(
     }
 );
 
+
 // ============================================================================
-// FUNCIÓN AUXILIAR: Marcar operaciones como REPORTED
+// HELPERS: Mark operations + save history
 // ============================================================================
 
 async function markOperationsReported(tenantId, operationIds) {
-    // Firestore batch limit is 500
     const chunks = [];
     for (let i = 0; i < operationIds.length; i += 400) {
         chunks.push(operationIds.slice(i, i + 400));
     }
-
     for (const chunk of chunks) {
         const batch = db.batch();
         for (const opId of chunk) {
@@ -358,25 +446,58 @@ async function markOperationsReported(tenantId, operationIds) {
     }
 }
 
-// ============================================================================
-// FUNCIÓN AUXILIAR: Guardar en historial
-// ============================================================================
-
-async function saveGenerationHistory(tenantId, userId, activityType, periodYear, periodMonth, recordCount, reportCount) {
+async function saveGenerationHistory(tenantId, userId, activityType, periodYear, periodMonth, recordCount, reportCount, informeEnCeros) {
     const docRef = await db.collection('tenants').doc(tenantId).collection('xml_generations').add({
         activityType,
         periodYear: parseInt(periodYear),
         periodMonth: parseInt(periodMonth),
         recordCount,
         reportCount,
+        informeEnCeros: !!informeEnCeros,
         generatedBy: userId,
         generatedAt: FieldValue.serverTimestamp(),
     });
     return docRef.id;
 }
 
+
 // ============================================================================
-// CONSTRUCTOR XML PRINCIPAL
+// XML BUILDER: Informe en Ceros
+// Only header + sujeto_obligado, NO <avisos> node
+// ============================================================================
+
+function buildXMLEnCeros(schema, tenantData, periodYear, periodMonth) {
+    const doc = create({ version: '1.0', encoding: 'UTF-8' })
+        .ele('archivo', {
+            'xmlns': schema.namespace,
+            'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+            'xsi:schemaLocation': `${schema.namespace} ${schema.schemaFile}`,
+        });
+
+    // Encabezado: Mes reportado
+    const mesDoc = doc.ele('informe');
+    const mesReportado = mesDoc.ele('mes_reportado');
+    mesReportado.ele('mes').txt(String(periodMonth).padStart(2, '0'));
+    mesReportado.ele('anio').txt(String(periodYear));
+
+    // Sujeto obligado
+    const sujetoDoc = mesDoc.ele('sujeto_obligado');
+    sujetoDoc.ele('clave_sujeto_obligado').txt(sanitizeTextSAT(tenantData.claveSujetoObligado || tenantData.rfc || '', 20));
+    sujetoDoc.ele('clave_actividad').txt(schema.sat_code);
+    sujetoDoc.ele('rfc').txt(sanitizeRFC(tenantData.rfc));
+    sujetoDoc.ele('razon_social').txt(sanitizeTextSAT(tenantData.razonSocial || tenantData.companyName || '', 150));
+
+    // Flag de sin operaciones
+    mesDoc.ele('sin_operaciones').txt('1');
+
+    return doc.end({ prettyPrint: true, indent: '  ' });
+}
+
+
+// ============================================================================
+// XML BUILDER: Informe con Operaciones
+// Groups operations by person (RFC), one <aviso> per person with multiple
+// <detalle_operaciones> nodes
 // ============================================================================
 
 function buildXMLDocument(activityType, schema, tenantData, operations, periodYear, periodMonth) {
@@ -387,202 +508,267 @@ function buildXMLDocument(activityType, schema, tenantData, operations, periodYe
             'xsi:schemaLocation': `${schema.namespace} ${schema.schemaFile}`,
         });
 
-    // Mes reporta
-    const mesDoc = doc.ele('mes_reporta');
-    mesDoc.ele('mes_reporta').txt(String(periodMonth).padStart(2, '0'));
-    mesDoc.ele('anio_reporta').txt(String(periodYear));
+    // Encabezado: Mes reportado
+    const informe = doc.ele('informe');
+    const mesReportado = informe.ele('mes_reportado');
+    mesReportado.ele('mes').txt(String(periodMonth).padStart(2, '0'));
+    mesReportado.ele('anio').txt(String(periodYear));
 
     // Sujeto obligado
-    const sujetoDoc = doc.ele('sujeto_obligado');
-    sujetoDoc.ele('clave_sujeto_obligado').txt(sanitizeText(tenantData.claveSujetoObligado || tenantData.rfc || '', 20));
+    const sujetoDoc = informe.ele('sujeto_obligado');
+    sujetoDoc.ele('clave_sujeto_obligado').txt(sanitizeTextSAT(tenantData.claveSujetoObligado || tenantData.rfc || '', 20));
     sujetoDoc.ele('clave_actividad').txt(schema.sat_code);
     sujetoDoc.ele('rfc').txt(sanitizeRFC(tenantData.rfc));
-    sujetoDoc.ele('razon_social').txt(sanitizeText(tenantData.razonSocial, 150));
+    sujetoDoc.ele('razon_social').txt(sanitizeTextSAT(tenantData.razonSocial || tenantData.companyName || '', 150));
+
+    // ── Group operations by person (RFC) ──
+    const personGroups = groupOperationsByPerson(operations);
 
     // Avisos
-    const avisosDoc = doc.ele('avisos');
+    const avisosDoc = informe.ele('avisos');
+    let folioCounter = 1;
 
-    for (let i = 0; i < operations.length; i++) {
-        const op = operations[i];
+    for (const [rfc, group] of Object.entries(personGroups)) {
         const avisoDoc = avisosDoc.ele('aviso');
-        avisoDoc.ele('folio_aviso').txt(String(i + 1).padStart(6, '0'));
+        avisoDoc.ele('referencia_aviso').txt(String(folioCounter).padStart(6, '0'));
 
-        // Detalle operación (específico por actividad)
-        buildDetalleOperacion(avisoDoc, activityType, op);
+        // ── Persona del Aviso ──
+        const firstOp = group.operations[0]; // Use first operation for person data
+        buildPersonaAviso(avisoDoc, firstOp);
 
-        // Persona operación (cliente)
-        buildPersonaOperacion(avisoDoc, op);
+        // ── Multiple detalle_operaciones ──
+        for (const op of group.operations) {
+            buildDetalleOperacion(avisoDoc, activityType, op);
+        }
+
+        folioCounter++;
     }
 
     return doc.end({ prettyPrint: true, indent: '  ' });
 }
 
+
+// ============================================================================
+// GROUP OPERATIONS BY PERSON (RFC)
+// ============================================================================
+
+function groupOperationsByPerson(operations) {
+    const groups = {};
+
+    for (const op of operations) {
+        const rfc = sanitizeRFC(op.rfcCliente) || `UNKNOWN_${op.sourceRow || Math.random()}`;
+
+        if (!groups[rfc]) {
+            groups[rfc] = {
+                rfc,
+                operations: [],
+            };
+        }
+        groups[rfc].operations.push(op);
+    }
+
+    return groups;
+}
+
+
+// ============================================================================
+// PERSONA DEL AVISO (Client + optional Beneficiary Controller)
+// ============================================================================
+
+function buildPersonaAviso(avisoDoc, op) {
+    const personaDoc = avisoDoc.ele('persona_aviso');
+
+    const rfc = sanitizeRFC(op.rfcCliente);
+    const tipoPersonaCode = getPersonTypeCode(op.tipoPersona, rfc);
+    personaDoc.ele('tipo_persona').txt(tipoPersonaCode);
+
+    if (tipoPersonaCode === '1') {
+        // ── Persona Física ──
+        if (op.apellidoPaterno || op.apellidoMaterno) {
+            // Structured name fields from Excel
+            personaDoc.ele('nombre').txt(sanitizeTextSAT(op.nombreCliente, 100));
+            personaDoc.ele('apellido_paterno').txt(sanitizeTextSAT(op.apellidoPaterno, 100));
+            if (op.apellidoMaterno) {
+                personaDoc.ele('apellido_materno').txt(sanitizeTextSAT(op.apellidoMaterno, 100));
+            }
+        } else {
+            // Fallback: split full name
+            const parts = splitNombre(op.nombreCliente || '');
+            personaDoc.ele('nombre').txt(sanitizeTextSAT(parts.nombre, 100));
+            personaDoc.ele('apellido_paterno').txt(sanitizeTextSAT(parts.apellidoPaterno, 100));
+            if (parts.apellidoMaterno) {
+                personaDoc.ele('apellido_materno').txt(sanitizeTextSAT(parts.apellidoMaterno, 100));
+            }
+        }
+
+        if (op.fechaNacimiento) {
+            personaDoc.ele('fecha_nacimiento').txt(formatDateSAT(op.fechaNacimiento));
+        }
+        if (op.curp) {
+            personaDoc.ele('curp').txt(sanitizeTextSAT(op.curp, 18));
+        }
+    } else {
+        // ── Persona Moral ──
+        personaDoc.ele('razon_social').txt(sanitizeTextSAT(op.nombreCliente, 150));
+        if (op.fechaNacimiento) {
+            personaDoc.ele('fecha_constitucion').txt(formatDateSAT(op.fechaNacimiento));
+        }
+    }
+
+    personaDoc.ele('rfc').txt(rfc);
+
+    if (op.telefono) {
+        personaDoc.ele('telefono').txt(sanitizeTextSAT(op.telefono, 20));
+    }
+    if (op.actividadEconomica) {
+        personaDoc.ele('actividad_economica').txt(sanitizeTextSAT(op.actividadEconomica, 200));
+    }
+
+    // Nacionalidad (default MX)
+    personaDoc.ele('pais_nacionalidad').txt(extractCatalogCode(op.pais) || 'MX');
+
+    // ── Domicilio ──
+    if (op.calle || op.colonia || op.codigoPostal) {
+        const domDoc = personaDoc.ele('domicilio');
+        if (op.calle) domDoc.ele('calle').txt(sanitizeTextSAT(op.calle, 200));
+        if (op.noExterior) domDoc.ele('numero_exterior').txt(sanitizeTextSAT(op.noExterior, 20));
+        if (op.noInterior) domDoc.ele('numero_interior').txt(sanitizeTextSAT(op.noInterior, 20));
+        if (op.colonia) domDoc.ele('colonia').txt(sanitizeTextSAT(op.colonia, 100));
+        if (op.codigoPostal) domDoc.ele('codigo_postal').txt(sanitizeTextSAT(op.codigoPostal, 5));
+        if (op.ciudad) domDoc.ele('ciudad_poblacion').txt(sanitizeTextSAT(op.ciudad, 100));
+        if (op.estado) domDoc.ele('entidad_federativa').txt(sanitizeTextSAT(op.estado, 50));
+        domDoc.ele('pais').txt(extractCatalogCode(op.pais) || 'MX');
+    }
+
+    // ── Beneficiario Controlador ──
+    const actuaNombrePropio = String(op.actuaNombrePropio || '').toUpperCase().trim();
+    if (actuaNombrePropio === 'NO') {
+        const benefDoc = personaDoc.ele('beneficiario_controlador');
+        if (op.nombreBeneficiario) {
+            benefDoc.ele('nombre').txt(sanitizeTextSAT(op.nombreBeneficiario, 100));
+        }
+        if (op.apellidoPaternoBeneficiario) {
+            benefDoc.ele('apellido_paterno').txt(sanitizeTextSAT(op.apellidoPaternoBeneficiario, 100));
+        }
+        if (op.apellidoMaternoBeneficiario) {
+            benefDoc.ele('apellido_materno').txt(sanitizeTextSAT(op.apellidoMaternoBeneficiario, 100));
+        }
+        if (op.rfcBeneficiario) {
+            benefDoc.ele('rfc').txt(sanitizeRFC(op.rfcBeneficiario));
+        }
+    }
+}
+
+
 // ============================================================================
 // DETALLE DE OPERACIÓN POR ACTIVIDAD
+// Maps catalog values to numeric codes for SAT
 // ============================================================================
 
 function buildDetalleOperacion(avisoDoc, activityType, op) {
-    const detDoc = avisoDoc.ele('detalle_operacion');
+    const detDoc = avisoDoc.ele('detalle_operaciones');
 
-    // Campos comunes
+    // ── Common fields ──
     detDoc.ele('fecha_operacion').txt(formatDateSAT(op.fechaOperacion));
-    detDoc.ele('tipo_operacion').txt(sanitizeText(op.tipoOperacion, 50));
+    detDoc.ele('tipo_operacion').txt(extractCatalogCode(op.tipoOperacion));
+    detDoc.ele('monto_operacion').txt(formatMonto(op.monto));
+    detDoc.ele('moneda').txt(extractMonedaLabel(op.moneda));
+    detDoc.ele('instrumento_monetario').txt(extractCatalogCode(op.instrumentoMonetario));
 
+    // ── Activity-specific fields ──
     switch (activityType) {
+        case 'JUEGOS_APUESTAS':
+            if (op.tipoJuego) detDoc.ele('tipo_juego').txt(sanitizeTextSAT(op.tipoJuego, 50));
+            if (op.premioObtenido) detDoc.ele('premio_obtenido').txt(formatMonto(op.premioObtenido));
+            break;
+
         case 'INMUEBLES':
-            detDoc.ele('monto_operacion').txt(formatMonto(op.monto));
-            detDoc.ele('moneda').txt('MXN');
-            if (op.ubicacionInmueble) detDoc.ele('ubicacion_inmueble').txt(sanitizeText(op.ubicacionInmueble, 300));
-            if (op.tipoInmueble) detDoc.ele('tipo_inmueble').txt(sanitizeText(op.tipoInmueble, 50));
-            if (op.folioReal) detDoc.ele('folio_real').txt(sanitizeText(op.folioReal, 50));
+            if (op.ubicacionInmueble) detDoc.ele('ubicacion_inmueble').txt(sanitizeTextSAT(op.ubicacionInmueble, 300));
+            if (op.tipoInmueble) detDoc.ele('tipo_inmueble').txt(sanitizeTextSAT(op.tipoInmueble, 50));
+            if (op.folioReal) detDoc.ele('folio_real').txt(sanitizeTextSAT(op.folioReal, 50));
             break;
 
         case 'VEHICULOS':
-            detDoc.ele('monto_operacion').txt(formatMonto(op.monto));
-            detDoc.ele('moneda').txt('MXN');
-            if (op.serieNIV) detDoc.ele('serie_niv').txt(sanitizeText(op.serieNIV, 50));
-            if (op.marca) detDoc.ele('marca').txt(sanitizeText(op.marca, 50));
-            if (op.modelo) detDoc.ele('modelo').txt(sanitizeText(op.modelo, 50));
+            if (op.serieNIV) detDoc.ele('serie_niv').txt(sanitizeTextSAT(op.serieNIV, 50));
+            if (op.marca) detDoc.ele('marca').txt(sanitizeTextSAT(op.marca, 50));
+            if (op.modelo) detDoc.ele('modelo').txt(sanitizeTextSAT(op.modelo, 50));
             if (op.anio) detDoc.ele('anio_vehiculo').txt(String(op.anio));
             break;
 
         case 'METALES_PIEDRAS':
-            detDoc.ele('monto_operacion').txt(formatMonto(op.monto));
-            detDoc.ele('moneda').txt('MXN');
-            if (op.descripcionArticulo) detDoc.ele('descripcion_articulo').txt(sanitizeText(op.descripcionArticulo, 200));
-            if (op.pesoQuilates) detDoc.ele('peso_quilates').txt(sanitizeText(op.pesoQuilates, 30));
+            if (op.descripcionArticulo) detDoc.ele('descripcion_articulo').txt(sanitizeTextSAT(op.descripcionArticulo, 200));
+            if (op.pesoQuilates) detDoc.ele('peso_quilates').txt(sanitizeTextSAT(op.pesoQuilates, 30));
             break;
 
         case 'OBRAS_ARTE':
-            detDoc.ele('monto_operacion').txt(formatMonto(op.monto));
-            detDoc.ele('moneda').txt('MXN');
-            if (op.descripcionObra) detDoc.ele('descripcion_obra').txt(sanitizeText(op.descripcionObra, 200));
-            if (op.autorArtista) detDoc.ele('autor_artista').txt(sanitizeText(op.autorArtista, 100));
-            if (op.tecnicaMaterial) detDoc.ele('tecnica_material').txt(sanitizeText(op.tecnicaMaterial, 100));
+            if (op.descripcionObra) detDoc.ele('descripcion_obra').txt(sanitizeTextSAT(op.descripcionObra, 200));
+            if (op.autorArtista) detDoc.ele('autor_artista').txt(sanitizeTextSAT(op.autorArtista, 100));
+            if (op.tecnicaMaterial) detDoc.ele('tecnica_material').txt(sanitizeTextSAT(op.tecnicaMaterial, 100));
             break;
 
         case 'ACTIVOS_VIRTUALES':
-            detDoc.ele('monto_operacion').txt(formatMonto(op.montoMXN || op.monto));
-            detDoc.ele('moneda').txt('MXN');
-            if (op.tipoActivoVirtual) detDoc.ele('tipo_activo_virtual').txt(sanitizeText(op.tipoActivoVirtual, 50));
+            if (op.tipoActivoVirtual) detDoc.ele('tipo_activo_virtual').txt(sanitizeTextSAT(op.tipoActivoVirtual, 50));
             if (op.cantidadTokens) detDoc.ele('cantidad_tokens').txt(String(op.cantidadTokens));
             break;
 
-        case 'JUEGOS_APUESTAS':
-            detDoc.ele('monto_operacion').txt(formatMonto(op.monto));
-            detDoc.ele('moneda').txt('MXN');
-            if (op.tipoJuego) detDoc.ele('tipo_juego').txt(sanitizeText(op.tipoJuego, 50));
-            if (op.premioObtenido) detDoc.ele('premio_obtenido').txt(formatMonto(op.premioObtenido));
-            break;
-
         case 'BLINDAJE':
-            detDoc.ele('monto_operacion').txt(formatMonto(op.monto));
-            detDoc.ele('moneda').txt('MXN');
-            if (op.tipoBlindaje) detDoc.ele('tipo_blindaje').txt(sanitizeText(op.tipoBlindaje, 50));
-            if (op.nivelBlindaje) detDoc.ele('nivel_blindaje').txt(sanitizeText(op.nivelBlindaje, 10));
-            if (op.descripcionBienBlindado) detDoc.ele('descripcion_bien').txt(sanitizeText(op.descripcionBienBlindado, 200));
-            if (op.numeroSerieIdentificacion) detDoc.ele('numero_serie').txt(sanitizeText(op.numeroSerieIdentificacion, 50));
+            if (op.tipoBlindaje) detDoc.ele('tipo_blindaje').txt(sanitizeTextSAT(op.tipoBlindaje, 50));
+            if (op.nivelBlindaje) detDoc.ele('nivel_blindaje').txt(sanitizeTextSAT(op.nivelBlindaje, 10));
+            if (op.descripcionBienBlindado) detDoc.ele('descripcion_bien').txt(sanitizeTextSAT(op.descripcionBienBlindado, 200));
             break;
 
         case 'TARJETAS_PREPAGO':
-            detDoc.ele('monto_operacion').txt(formatMonto(op.monto));
-            detDoc.ele('moneda').txt('MXN');
-            if (op.tipoTarjeta) detDoc.ele('tipo_tarjeta').txt(sanitizeText(op.tipoTarjeta, 30));
-            if (op.numeroTarjeta) detDoc.ele('numero_tarjeta').txt(sanitizeText(op.numeroTarjeta, 20));
-            if (op.montoCargaOperacion) detDoc.ele('monto_carga').txt(formatMonto(op.montoCargaOperacion));
+            if (op.tipoTarjeta) detDoc.ele('tipo_tarjeta').txt(sanitizeTextSAT(op.tipoTarjeta, 30));
+            if (op.numeroTarjeta) detDoc.ele('numero_tarjeta').txt(sanitizeTextSAT(op.numeroTarjeta, 20));
             break;
 
         case 'CHEQUES_VIAJERO':
-            detDoc.ele('monto_operacion').txt(formatMonto(op.monto));
-            if (op.denominacionCheque) detDoc.ele('denominacion').txt(sanitizeText(op.denominacionCheque, 50));
+            if (op.denominacionCheque) detDoc.ele('denominacion').txt(sanitizeTextSAT(op.denominacionCheque, 50));
             if (op.cantidadCheques) detDoc.ele('cantidad_cheques').txt(String(op.cantidadCheques));
-            if (op.moneda) detDoc.ele('moneda').txt(sanitizeText(op.moneda, 10));
             break;
 
         case 'OPERACIONES_MUTUO':
-            detDoc.ele('monto_operacion').txt(formatMonto(op.monto));
-            detDoc.ele('moneda').txt('MXN');
-            if (op.plazo) detDoc.ele('plazo').txt(sanitizeText(op.plazo, 30));
+            if (op.plazo) detDoc.ele('plazo').txt(sanitizeTextSAT(op.plazo, 30));
             if (op.tasaInteres) detDoc.ele('tasa_interes').txt(String(parseFloat(op.tasaInteres).toFixed(2)));
-            if (op.tipoGarantia) detDoc.ele('tipo_garantia').txt(sanitizeText(op.tipoGarantia, 50));
+            if (op.tipoGarantia) detDoc.ele('tipo_garantia').txt(sanitizeTextSAT(op.tipoGarantia, 50));
             break;
 
         case 'TRASLADO_VALORES':
-            detDoc.ele('monto_operacion').txt(formatMonto(op.monto));
-            detDoc.ele('moneda').txt('MXN');
-            if (op.origen) detDoc.ele('origen').txt(sanitizeText(op.origen, 200));
-            if (op.destino) detDoc.ele('destino').txt(sanitizeText(op.destino, 200));
-            if (op.tipoValorTrasladado) detDoc.ele('tipo_valor').txt(sanitizeText(op.tipoValorTrasladado, 50));
+            if (op.origen) detDoc.ele('origen').txt(sanitizeTextSAT(op.origen, 200));
+            if (op.destino) detDoc.ele('destino').txt(sanitizeTextSAT(op.destino, 200));
+            if (op.tipoValorTrasladado) detDoc.ele('tipo_valor').txt(sanitizeTextSAT(op.tipoValorTrasladado, 50));
             break;
 
         case 'SERVICIOS_FE_PUBLICA':
-            detDoc.ele('monto_operacion').txt(formatMonto(op.monto));
-            detDoc.ele('moneda').txt('MXN');
-            if (op.numeroInstrumento) detDoc.ele('numero_instrumento').txt(sanitizeText(op.numeroInstrumento, 30));
-            if (op.tipoActoJuridico) detDoc.ele('tipo_acto').txt(sanitizeText(op.tipoActoJuridico, 100));
-            if (op.descripcionActo) detDoc.ele('descripcion_acto').txt(sanitizeText(op.descripcionActo, 300));
+            if (op.numeroInstrumento) detDoc.ele('numero_instrumento').txt(sanitizeTextSAT(op.numeroInstrumento, 30));
+            if (op.tipoActoJuridico) detDoc.ele('tipo_acto').txt(sanitizeTextSAT(op.tipoActoJuridico, 100));
+            if (op.descripcionActo) detDoc.ele('descripcion_acto').txt(sanitizeTextSAT(op.descripcionActo, 300));
             break;
 
         case 'SERVICIOS_PROFESIONALES':
-            detDoc.ele('monto_operacion').txt(formatMonto(op.monto));
-            detDoc.ele('moneda').txt('MXN');
-            if (op.tipoServicio) detDoc.ele('tipo_servicio').txt(sanitizeText(op.tipoServicio, 100));
-            if (op.descripcionServicio) detDoc.ele('descripcion_servicio').txt(sanitizeText(op.descripcionServicio, 300));
+            if (op.tipoServicio) detDoc.ele('tipo_servicio').txt(sanitizeTextSAT(op.tipoServicio, 100));
+            if (op.descripcionServicio) detDoc.ele('descripcion_servicio').txt(sanitizeTextSAT(op.descripcionServicio, 300));
             break;
 
         case 'ARRENDAMIENTO':
-            detDoc.ele('monto_operacion').txt(formatMonto(op.montoMensual || op.monto));
-            detDoc.ele('moneda').txt('MXN');
-            if (op.ubicacionInmueble) detDoc.ele('ubicacion_inmueble').txt(sanitizeText(op.ubicacionInmueble, 300));
-            if (op.tipoInmueble) detDoc.ele('tipo_inmueble').txt(sanitizeText(op.tipoInmueble, 50));
-            if (op.plazoContrato) detDoc.ele('plazo_contrato').txt(sanitizeText(op.plazoContrato, 30));
+            if (op.ubicacionInmueble) detDoc.ele('ubicacion_inmueble').txt(sanitizeTextSAT(op.ubicacionInmueble, 300));
+            if (op.tipoInmueble) detDoc.ele('tipo_inmueble').txt(sanitizeTextSAT(op.tipoInmueble, 50));
+            if (op.plazoContrato) detDoc.ele('plazo_contrato').txt(sanitizeTextSAT(op.plazoContrato, 30));
             break;
 
         case 'CONSTITUCION_PERSONAS':
-            detDoc.ele('monto_operacion').txt(formatMonto(op.monto));
-            detDoc.ele('moneda').txt('MXN');
-            if (op.denominacionRazonSocial) detDoc.ele('denominacion').txt(sanitizeText(op.denominacionRazonSocial, 150));
-            if (op.tipoPersonaMoral) detDoc.ele('tipo_persona_moral').txt(sanitizeText(op.tipoPersonaMoral, 50));
-            if (op.objetoSocial) detDoc.ele('objeto_social').txt(sanitizeText(op.objetoSocial, 300));
+            if (op.denominacionRazonSocial) detDoc.ele('denominacion').txt(sanitizeTextSAT(op.denominacionRazonSocial, 150));
+            if (op.tipoPersonaMoral) detDoc.ele('tipo_persona_moral').txt(sanitizeTextSAT(op.tipoPersonaMoral, 50));
+            if (op.objetoSocial) detDoc.ele('objeto_social').txt(sanitizeTextSAT(op.objetoSocial, 300));
             if (op.capitalSocial) detDoc.ele('capital_social').txt(formatMonto(op.capitalSocial));
             break;
 
         default:
-            detDoc.ele('monto_operacion').txt(formatMonto(op.monto));
-            detDoc.ele('moneda').txt('MXN');
-            if (op.descripcion) detDoc.ele('descripcion').txt(sanitizeText(op.descripcion, 300));
+            if (op.descripcion) detDoc.ele('descripcion').txt(sanitizeTextSAT(op.descripcion, 300));
             break;
     }
 }
 
-// ============================================================================
-// PERSONA OPERACIÓN (CLIENTE)
-// ============================================================================
-
-function buildPersonaOperacion(avisoDoc, op) {
-    const personaDoc = avisoDoc.ele('persona_operacion');
-
-    // Determinar tipo de persona por longitud del RFC
-    const rfc = sanitizeRFC(op.rfcCliente);
-    const tipoPersona = rfc.length === 12 ? 'PM' : 'PF';
-    personaDoc.ele('tipo_persona').txt(tipoPersona);
-
-    if (tipoPersona === 'PF') {
-        // Persona Física - separar nombre
-        const nombreParts = splitNombre(op.nombreCliente || '');
-        personaDoc.ele('nombre').txt(sanitizeText(nombreParts.nombre, 100));
-        personaDoc.ele('apellido_paterno').txt(sanitizeText(nombreParts.apellidoPaterno, 100));
-        if (nombreParts.apellidoMaterno) {
-            personaDoc.ele('apellido_materno').txt(sanitizeText(nombreParts.apellidoMaterno, 100));
-        }
-    } else {
-        // Persona Moral
-        personaDoc.ele('razon_social').txt(sanitizeText(op.nombreCliente, 150));
-    }
-
-    personaDoc.ele('rfc').txt(rfc);
-    personaDoc.ele('nacionalidad').txt('MX');
-}
 
 // ============================================================================
 // UTILIDAD: Separar nombre completo en partes

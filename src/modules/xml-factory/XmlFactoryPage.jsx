@@ -98,22 +98,25 @@ export function XmlFactoryPage() {
     }
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (informeEnCeros = false) => {
     if (!selectedActivity) { setError('Selecciona una actividad'); return; }
     setIsGenerating(true);
     setError('');
     setGenerationResult(null);
     setValidationResult(null);
     try {
-      const generateXML = httpsCallable(functions, 'generateXML');
-      const result = await generateXML({
+      const generateXMLFn = httpsCallable(functions, 'generateXML');
+      const result = await generateXMLFn({
         activityType: selectedActivity,
         periodYear: selectedYear,
         periodMonth: selectedMonth,
+        informeEnCeros,
       });
       if (result.data.success) {
         setGenerationResult(result.data);
-        await autoValidateReports(result.data.reports);
+        if (!informeEnCeros) {
+          await autoValidateReports(result.data.reports);
+        }
         loadHistory();
       }
     } catch (err) {
@@ -269,16 +272,26 @@ export function XmlFactoryPage() {
                     )}
                   </div>
                 ) : (
-                  <p className="text-secondary-500">
-                    No hay operaciones cargadas para este periodo. Sube datos desde el{' '}
-                    <a href="/ingest" className="text-primary-600 underline">módulo de carga</a>.
-                  </p>
+                  <div className="space-y-3">
+                    <p className="text-secondary-500">
+                      No hay operaciones cargadas para este periodo. Sube datos desde el{' '}
+                      <a href="/ingest" className="text-primary-600 underline">módulo de carga</a>,
+                      o genera un Informe en Ceros.
+                    </p>
+                    {!generationResult && (
+                      <Button onClick={() => handleGenerate(true)} disabled={isGenerating} variant="secondary" className="flex items-center gap-2">
+                        {isGenerating ? (<><Loader2 className="w-5 h-5 animate-spin" /> Generando...</>) : (<><FileCode className="w-5 h-5" /> Generar Informe en Ceros</>)}
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
               {operationCount > 0 && !generationResult && (
-                <Button onClick={handleGenerate} disabled={isGenerating} className="flex items-center gap-2 shrink-0 ml-4">
-                  {isGenerating ? (<><Loader2 className="w-5 h-5 animate-spin" /> Generando...</>) : (<><FileCode className="w-5 h-5" /> Generar XML</>)}
-                </Button>
+                <div className="flex items-center gap-2 shrink-0 ml-4">
+                  <Button onClick={() => handleGenerate(false)} disabled={isGenerating} className="flex items-center gap-2">
+                    {isGenerating ? (<><Loader2 className="w-5 h-5 animate-spin" /> Generando...</>) : (<><FileCode className="w-5 h-5" /> Generar XML</>)}
+                  </Button>
+                </div>
               )}
             </div>
           ) : null}
