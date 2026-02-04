@@ -26,6 +26,7 @@ const Wizard = lazy(() => import('./modules/onboarding/Wizard'));
 const Dashboard = lazy(() => import('./modules/dashboard/Dashboard'));
 const IngestPage = lazy(() => import('./modules/ingest/IngestPage'));
 const RiskEnginePage = lazy(() => import('./modules/risk-engine/RiskEnginePage'));
+const MonitoringPage = lazy(() => import('./modules/monitoring/MonitoringPage'));
 const XmlFactoryPage = lazy(() => import('./modules/xml-factory/XmlFactoryPage'));
 const ComplianceVaultPage = lazy(() => import('./modules/compliance-vault/ComplianceVaultPage'));
 const AnalyticsPage = lazy(() => import('./modules/analytics/AnalyticsPage'));
@@ -94,6 +95,7 @@ function App() {
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/ingest" element={<IngestPage />} />
                 <Route path="/risk-engine" element={<RiskEnginePage />} />
+                <Route path="/monitoring" element={<MonitoringPage />} />
                 <Route path="/xml-factory" element={<XmlFactoryPage />} />
                 <Route path="/compliance-vault" element={<ComplianceVaultPage />} />
                 <Route path="/analytics" element={<AnalyticsPage />} />
