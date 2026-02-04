@@ -4,11 +4,11 @@
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { db } from '../firebase.js';
+import { FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import * as XLSX from 'xlsx';
 
-const db = getFirestore();
 
 // ========================================
 // DEFINICIÓN DE COLUMNAS POR ACTIVIDAD
@@ -62,6 +62,107 @@ const ACTIVITY_COLUMNS = {
         { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
         { key: 'tipoJuego', label: 'Tipo Juego/Apuesta', required: true, type: 'string' },
         { key: 'premioObtenido', label: 'Premio Obtenido', required: false, type: 'number' },
+    ],
+    BLINDAJE: [
+        { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
+        { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
+        { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
+        { key: 'tipoBlindaje', label: 'Tipo Blindaje', required: true, type: 'string' },
+        { key: 'nivelBlindaje', label: 'Nivel Blindaje', required: true, type: 'string' },
+        { key: 'descripcionBienBlindado', label: 'Descripción Bien Blindado', required: true, type: 'string' },
+        { key: 'numeroSerieIdentificacion', label: 'Número Serie/Identificación', required: false, type: 'string' },
+    ],
+    TARJETAS_PREPAGO: [
+        { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
+        { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
+        { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
+        { key: 'tipoTarjeta', label: 'Tipo Tarjeta', required: true, type: 'string' },
+        { key: 'numeroTarjeta', label: 'Número Tarjeta', required: true, type: 'string' },
+        { key: 'montoCargaOperacion', label: 'Monto Carga/Operación', required: true, type: 'number' },
+    ],
+    CHEQUES_VIAJERO: [
+        { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
+        { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
+        { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
+        { key: 'denominacionCheque', label: 'Denominación Cheque', required: true, type: 'string' },
+        { key: 'cantidadCheques', label: 'Cantidad Cheques', required: true, type: 'number' },
+        { key: 'moneda', label: 'Moneda', required: true, type: 'string' },
+    ],
+    OPERACIONES_MUTUO: [
+        { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
+        { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
+        { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
+        { key: 'tipoGarantia', label: 'Tipo Garantía', required: false, type: 'string' },
+        { key: 'plazo', label: 'Plazo', required: true, type: 'string' },
+        { key: 'tasaInteres', label: 'Tasa Interés', required: false, type: 'number' },
+    ],
+    OBRAS_ARTE: [
+        { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
+        { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
+        { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
+        { key: 'descripcionObra', label: 'Descripción Obra', required: true, type: 'string' },
+        { key: 'autorArtista', label: 'Autor/Artista', required: false, type: 'string' },
+        { key: 'tecnicaMaterial', label: 'Técnica/Material', required: false, type: 'string' },
+    ],
+    TRASLADO_VALORES: [
+        { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
+        { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
+        { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
+        { key: 'origen', label: 'Origen', required: true, type: 'string' },
+        { key: 'destino', label: 'Destino', required: true, type: 'string' },
+        { key: 'tipoValorTrasladado', label: 'Tipo Valor Trasladado', required: true, type: 'string' },
+    ],
+    SERVICIOS_FE_PUBLICA: [
+        { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
+        { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
+        { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
+        { key: 'numeroInstrumento', label: 'Número Instrumento', required: true, type: 'string' },
+        { key: 'tipoActoJuridico', label: 'Tipo Acto Jurídico', required: true, type: 'string' },
+        { key: 'descripcionActo', label: 'Descripción Acto', required: false, type: 'string' },
+    ],
+    SERVICIOS_PROFESIONALES: [
+        { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
+        { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
+        { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
+        { key: 'tipoServicio', label: 'Tipo Servicio', required: true, type: 'string' },
+        { key: 'descripcionServicio', label: 'Descripción Servicio', required: true, type: 'string' },
+    ],
+    ARRENDAMIENTO: [
+        { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'montoMensual', label: 'Monto Mensual (MXN)', required: true, type: 'number' },
+        { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
+        { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
+        { key: 'ubicacionInmueble', label: 'Ubicación Inmueble', required: true, type: 'string' },
+        { key: 'tipoInmueble', label: 'Tipo Inmueble', required: true, type: 'string' },
+        { key: 'plazoContrato', label: 'Plazo Contrato', required: false, type: 'string' },
+    ],
+    CONSTITUCION_PERSONAS: [
+        { key: 'fechaOperacion', label: 'Fecha Operación', required: true, type: 'date' },
+        { key: 'tipoOperacion', label: 'Tipo Operación', required: true, type: 'string' },
+        { key: 'monto', label: 'Monto (MXN)', required: true, type: 'number' },
+        { key: 'rfcCliente', label: 'RFC Cliente', required: true, type: 'rfc' },
+        { key: 'nombreCliente', label: 'Nombre Cliente', required: true, type: 'string' },
+        { key: 'denominacionRazonSocial', label: 'Denominación/Razón Social', required: true, type: 'string' },
+        { key: 'tipoPersonaMoral', label: 'Tipo Persona Moral', required: true, type: 'string' },
+        { key: 'objetoSocial', label: 'Objeto Social', required: false, type: 'string' },
+        { key: 'capitalSocial', label: 'Capital Social', required: false, type: 'number' },
     ],
     // Plantilla genérica para otras actividades
     DEFAULT: [
