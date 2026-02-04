@@ -447,6 +447,42 @@ const SECTION_COLORS = {
 
 
 // ============================================================================
+// CONSTANTES LEGALES — LFPIORPI / UMA / EBR
+// ============================================================================
+
+/**
+ * UMA (Unidad de Medida y Actualización) 2025
+ * Publicado en DOF por INEGI
+ */
+const UMA_DIARIO = 113.14; // MXN por día (2025)
+const UMA_MENSUAL = UMA_DIARIO * 30.4; // ~3,439.46 MXN
+
+/**
+ * LFPIORPI Art. 32 — Restricción de efectivo
+ * "Las Actividades Vulnerables NO podrán recibir pagos en efectivo
+ *  por montos superiores al equivalente a 3,210 UMA"
+ */
+const LIMITE_EFECTIVO_UMA = 3210;
+const LIMITE_EFECTIVO_MXN = LIMITE_EFECTIVO_UMA * UMA_DIARIO; // ~$363,179.40
+
+/**
+ * EBR — Enfoque Basado en Riesgo (umbrales de aviso LFPIORPI Art. 17)
+ * HIGH  = Monto ≥ 645 UMA → Aviso automático SAT/SPPLD
+ * MEDIUM = Monto ≥ 325 UMA → Identificación obligatoria
+ * LOW   = Por debajo de umbrales
+ */
+const UMBRAL_AVISO_UMA = 645;     // Aviso automático
+const UMBRAL_IDENT_UMA = 325;     // Identificación obligatoria
+const UMBRAL_AVISO_MXN = UMBRAL_AVISO_UMA * UMA_DIARIO;  // ~$72,975.30
+const UMBRAL_IDENT_MXN = UMBRAL_IDENT_UMA * UMA_DIARIO;  // ~$36,770.50
+
+/**
+ * CURP Regex — 18 caracteres alfanuméricos con estructura SAT
+ */
+const CURP_REGEX = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z\d]{2}$/;
+
+
+// ============================================================================
 // VALIDADORES
 // ============================================================================
 
@@ -479,6 +515,225 @@ function parseDate(dateValue) {
 function validateNumber(value) {
     if (value === null || value === undefined || value === '') return false;
     return !isNaN(Number(value)) && Number(value) >= 0;
+}
+
+/**
+ * Validate CURP format (18 chars, alphanumeric structure)
+ */
+function validateCURP(curp) {
+    if (!curp || typeof curp !== 'string') return false;
+    return CURP_REGEX.test(curp.toUpperCase().trim());
+}
+
+/**
+ * Determine if the instrument is "Efectivo" (cash)
+ * Accepts: "1-Efectivo", "Efectivo", "1", etc.
+ */
+function isEfectivo(instrumentoMonetario) {
+    if (!instrumentoMonetario) return false;
+    const clean = String(instrumentoMonetario).toLowerCase().trim();
+    return clean === '1-efectivo' || clean === 'efectivo' || clean === '1';
+}
+
+/**
+ * Determine if operation is "Pago de premios" in JUEGOS_APUESTAS
+ * Accepts: "2-Pago de premios", etc.
+ */
+function isPagoPremios(tipoOperacion) {
+    if (!tipoOperacion) return false;
+    const clean = String(tipoOperacion).toLowerCase().trim();
+    return clean.includes('pago de premios') || clean.startsWith('2-');
+}
+
+/**
+ * Extract person type code from catalog value
+ * "1-Física" → "PF", "2-Moral" → "PM"
+ */
+function getPersonType(tipoPersona) {
+    if (!tipoPersona) return null;
+    const clean = String(tipoPersona).toLowerCase().trim();
+    if (clean.includes('física') || clean === '1' || clean === '1-física') return 'PF';
+    if (clean.includes('moral') || clean === '2' || clean === '2-moral') return 'PM';
+    return null;
+}
+
+// ============================================================================
+// LEGAL VALIDATION ENGINE — LFPIORPI Art. 17, 18, 32
+// ============================================================================
+
+/**
+ * Validates a single row against LFPIORPI legal rules.
+ * Returns: { hardStops: [], warnings: [], riskLevel, riskReason, riskScore }
+ *
+ * Hard Stops → Row is REJECTED (not saved)
+ * Warnings  → Row is saved with warnings attached
+ */
+function validateLegalRules(rowData, activityType) {
+    const hardStops = [];
+    const warnings = [];
+    let riskLevel = 'LOW';
+    let riskReason = '';
+    let riskScore = 0;
+
+    const monto = Number(rowData.monto) || 0;
+    const instrumento = rowData.instrumentoMonetario || '';
+    const tipoPersona = getPersonType(rowData.tipoPersona);
+    const rfcCliente = rowData.rfcCliente || '';
+    const curp = rowData.curp || '';
+    const nombreCliente = rowData.nombreCliente || '';
+    const apellidoPaterno = rowData.apellidoPaterno || '';
+    const tipoOperacion = rowData.tipoOperacion || '';
+    const actuaNombrePropio = String(rowData.actuaNombrePropio || '').toUpperCase().trim();
+
+    // ─────────────────────────────────────────────
+    // 1. ART. 32 LFPIORPI — Restricción de Efectivo
+    //    HARD STOP: Efectivo > 3,210 UMA = REJECT
+    // ─────────────────────────────────────────────
+    if (isEfectivo(instrumento) && monto > LIMITE_EFECTIVO_MXN) {
+        hardStops.push(
+            `⛔ Art. 32 LFPIORPI: Operación en EFECTIVO por $${monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })} ` +
+            `EXCEDE el límite de 3,210 UMA ($${LIMITE_EFECTIVO_MXN.toLocaleString('es-MX', { minimumFractionDigits: 2 })}). ` +
+            `OPERACIÓN RECHAZADA — No se puede recibir efectivo por este monto.`
+        );
+    }
+
+    // ─────────────────────────────────────────────
+    // 2. VALIDACIÓN DE IDENTIDAD (PF vs PM)
+    // ─────────────────────────────────────────────
+    if (tipoPersona === 'PF') {
+        // Persona Física: RFC 13 chars + apellidos requeridos
+        if (rfcCliente && rfcCliente.length !== 13) {
+            hardStops.push(
+                `⛔ RFC "${rfcCliente}" tiene ${rfcCliente.length} caracteres. ` +
+                `Persona Física requiere RFC de 13 caracteres.`
+            );
+        }
+        if (!apellidoPaterno) {
+            warnings.push(
+                `⚠️ Persona Física sin Apellido Paterno. Requerido por SAT para identificación.`
+            );
+        }
+        if (curp && !validateCURP(curp)) {
+            warnings.push(
+                `⚠️ CURP "${curp}" no tiene formato válido (18 caracteres alfanuméricos).`
+            );
+        }
+    } else if (tipoPersona === 'PM') {
+        // Persona Moral: RFC 12 chars + razón social requerida
+        if (rfcCliente && rfcCliente.length !== 12) {
+            hardStops.push(
+                `⛔ RFC "${rfcCliente}" tiene ${rfcCliente.length} caracteres. ` +
+                `Persona Moral requiere RFC de 12 caracteres.`
+            );
+        }
+        if (!nombreCliente) {
+            warnings.push(
+                `⚠️ Persona Moral sin Razón Social. Campo requerido por SAT.`
+            );
+        }
+        // Persona Moral should NOT have CURP
+        if (curp) {
+            warnings.push(
+                `⚠️ Persona Moral no debe tener CURP. Se ignorará este campo.`
+            );
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // 3. EBR — Enfoque Basado en Riesgo
+    //    Semáforo por monto de operación individual
+    // ─────────────────────────────────────────────
+    if (monto >= UMBRAL_AVISO_MXN) {
+        riskLevel = 'HIGH';
+        riskReason = `Monto $${monto.toLocaleString('es-MX')} ≥ 645 UMA ($${UMBRAL_AVISO_MXN.toLocaleString('es-MX')}). Aviso automático SAT.`;
+        riskScore = 100;
+    } else if (monto >= UMBRAL_IDENT_MXN) {
+        riskLevel = 'MEDIUM';
+        riskReason = `Monto $${monto.toLocaleString('es-MX')} ≥ 325 UMA ($${UMBRAL_IDENT_MXN.toLocaleString('es-MX')}). Identificación obligatoria.`;
+        riskScore = 60;
+    } else {
+        riskLevel = 'LOW';
+        riskReason = 'Monto por debajo de umbrales LFPIORPI.';
+        riskScore = 10;
+    }
+
+    // ─────────────────────────────────────────────
+    // 4. REGLAS ESPECÍFICAS: JUEGOS_APUESTAS
+    //    Pago de premios en efectivo → MEDIUM review
+    // ─────────────────────────────────────────────
+    if (activityType === 'JUEGOS_APUESTAS') {
+        if (isPagoPremios(tipoOperacion) && isEfectivo(instrumento)) {
+            if (riskLevel === 'LOW') {
+                riskLevel = 'MEDIUM';
+                riskReason = 'Pago de premio en efectivo (Juegos y Sorteos). Revisión manual recomendada.';
+                riskScore = Math.max(riskScore, 50);
+            }
+            warnings.push(
+                `⚠️ Juegos y Sorteos: Pago de premio en efectivo detectado. ` +
+                `Art. 17 fracción XI LFPIORPI — requiere revisión manual.`
+            );
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // 5. EFECTIVO ALTO (sin llegar al límite Art. 32)
+    //    Si paga en efectivo y monto > 50,000 MXN → warning
+    // ─────────────────────────────────────────────
+    if (isEfectivo(instrumento) && monto > 50000 && monto <= LIMITE_EFECTIVO_MXN) {
+        warnings.push(
+            `⚠️ Operación en efectivo por $${monto.toLocaleString('es-MX')}. ` +
+            `Verificar origen de recursos.`
+        );
+    }
+
+    // ─────────────────────────────────────────────
+    // 6. BENEFICIARIO CONTROLADOR
+    //    Si NO actúa a nombre propio, datos del beneficiario son requeridos
+    // ─────────────────────────────────────────────
+    if (actuaNombrePropio === 'NO') {
+        const nombreBenef = rowData.nombreBeneficiario || '';
+        const rfcBenef = rowData.rfcBeneficiario || '';
+        if (!nombreBenef) {
+            warnings.push(
+                `⚠️ Cliente NO actúa a nombre propio pero falta el nombre del Beneficiario Controlador. ` +
+                `Requerido por Art. 18 LFPIORPI.`
+            );
+        }
+        if (!rfcBenef) {
+            warnings.push(
+                `⚠️ Cliente NO actúa a nombre propio pero falta el RFC del Beneficiario Controlador.`
+            );
+        }
+    }
+
+    return { hardStops, warnings, riskLevel, riskReason, riskScore };
+}
+
+/**
+ * Query Firestore for monthly accumulated amount by RFC within same tenant/activity/month.
+ * Used for EBR accumulation check — if cumulative ≥ 645 UMA, upgrade risk to HIGH.
+ */
+async function getMonthlyAccumulation(tenantId, rfcCliente, activityType, periodYear, periodMonth) {
+    if (!rfcCliente) return 0;
+
+    try {
+        const opsRef = db.collection('tenants').doc(tenantId).collection('operations');
+        const snapshot = await opsRef
+            .where('rfcCliente', '==', rfcCliente.toUpperCase().trim())
+            .where('activityType', '==', activityType)
+            .where('periodYear', '==', periodYear)
+            .where('periodMonth', '==', periodMonth)
+            .get();
+
+        let total = 0;
+        snapshot.forEach(doc => {
+            total += Number(doc.data().monto) || 0;
+        });
+        return total;
+    } catch (err) {
+        logger.warn('Error querying monthly accumulation:', err.message);
+        return 0;
+    }
 }
 
 
@@ -708,11 +963,20 @@ export const getTemplate = onCall(
 
 // ============================================================================
 // CLOUD FUNCTION: processUpload
-// Procesa archivo Excel cargado y guarda operaciones en Firestore
+// Motor de Ingesta con Validación Legal LFPIORPI + EBR Risk Engine
+//
+// Pipeline:
+//   1. Parse Excel → Extract rows
+//   2. Format validation (RFC, dates, numbers, catalogs)
+//   3. LEGAL VALIDATION (Art. 32 cash limit, identity PF/PM, beneficiary)
+//   4. EBR Risk Assessment (individual monto)
+//   5. Monthly Accumulation by RFC (Firestore query)
+//   6. Accumulation risk upgrade (if cumulative ≥ 645 UMA → HIGH)
+//   7. Save to Firestore with riskLevel, riskReason, warnings
 // ============================================================================
 
 export const processUpload = onCall(
-    { region: 'us-central1', memory: '512MiB', timeoutSeconds: 120 },
+    { region: 'us-central1', memory: '1GiB', timeoutSeconds: 180 },
     async (request) => {
         if (!request.auth) {
             throw new HttpsError('unauthenticated', 'Debes iniciar sesión');
@@ -764,11 +1028,13 @@ export const processUpload = onCall(
                 if (colDef) headerToCol[index] = colDef;
             });
 
-            // Process rows
-            const validRows = [];
-            const errors = [];
+            // ── PHASE 1: Format Validation (parse each row) ──
+            const parsedRows = [];
+            const formatErrors = [];
             const uploadBatchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             const uploadDate = new Date().toISOString();
+            const pYear = parseInt(periodYear);
+            const pMonth = parseInt(periodMonth);
 
             dataRows.forEach((row, rowIndex) => {
                 const rowNum = rowIndex + 2;
@@ -776,8 +1042,8 @@ export const processUpload = onCall(
                 const rowData = {
                     tenantId,
                     activityType,
-                    periodYear: parseInt(periodYear),
-                    periodMonth: parseInt(periodMonth),
+                    periodYear: pYear,
+                    periodMonth: pMonth,
                     uploadDate,
                     uploadBatchId,
                     status: 'PENDING',
@@ -827,7 +1093,6 @@ export const processUpload = onCall(
 
                         case 'catalog': {
                             const cleanValue = String(value).trim();
-                            // Validate against appropriate catalog
                             let validValues = [];
                             if (catalog === 'tipoOp') {
                                 validValues = tiposOp.map(v => v.label);
@@ -854,7 +1119,7 @@ export const processUpload = onCall(
                 });
 
                 if (rowErrors.length > 0) {
-                    errors.push({ row: rowNum, errors: rowErrors });
+                    formatErrors.push({ row: rowNum, errors: rowErrors, type: 'FORMAT' });
                 } else {
                     // Verify minimum required fields
                     const missingRequired = columns
@@ -862,17 +1127,128 @@ export const processUpload = onCall(
                         .filter(c => !rowData[c.key]);
 
                     if (missingRequired.length > 0) {
-                        errors.push({
+                        formatErrors.push({
                             row: rowNum,
                             errors: missingRequired.map(c => `"${c.label}" es requerido`),
+                            type: 'FORMAT',
                         });
                     } else {
-                        validRows.push(rowData);
+                        parsedRows.push(rowData);
                     }
                 }
             });
 
-            // Save valid rows to Firestore (batch write, max 500 per batch)
+            // ── PHASE 2: Legal Validation + EBR Risk Assessment ──
+            const validRows = [];
+            const rejectedRows = [];  // Hard stops (Art. 32, identity)
+            const warningRows = [];   // Passed but with warnings
+
+            // Collect unique RFCs for accumulation query
+            const uniqueRFCs = [...new Set(
+                parsedRows.map(r => r.rfcCliente).filter(Boolean)
+            )];
+
+            // Query monthly accumulation for all unique RFCs in parallel
+            const accumulationMap = {};  // { rfc: totalAccumulated }
+            if (uniqueRFCs.length > 0) {
+                const accPromises = uniqueRFCs.map(async (rfc) => {
+                    const accumulated = await getMonthlyAccumulation(
+                        tenantId, rfc, activityType, pYear, pMonth
+                    );
+                    accumulationMap[rfc.toUpperCase().trim()] = accumulated;
+                });
+                await Promise.all(accPromises);
+            }
+
+            // Track in-batch accumulation (for rows in same upload with same RFC)
+            const batchAccumulation = {};  // { rfc: runningTotal }
+
+            for (const rowData of parsedRows) {
+                // Run legal validation
+                const legalResult = validateLegalRules(rowData, activityType);
+
+                // HARD STOPS → Reject the row entirely
+                if (legalResult.hardStops.length > 0) {
+                    rejectedRows.push({
+                        row: rowData.sourceRow,
+                        errors: legalResult.hardStops,
+                        type: 'LEGAL_REJECT',
+                    });
+                    continue;
+                }
+
+                // ── Accumulation Check ──
+                const rfc = (rowData.rfcCliente || '').toUpperCase().trim();
+                const monto = Number(rowData.monto) || 0;
+
+                // Previous months (already in Firestore) + this batch
+                const previousAccumulated = accumulationMap[rfc] || 0;
+                const batchPrevious = batchAccumulation[rfc] || 0;
+                const totalAccumulated = previousAccumulated + batchPrevious + monto;
+
+                // Update batch running total
+                if (rfc) {
+                    batchAccumulation[rfc] = (batchAccumulation[rfc] || 0) + monto;
+                }
+
+                // Upgrade risk level based on accumulation
+                let { riskLevel, riskReason, riskScore } = legalResult;
+
+                if (totalAccumulated >= UMBRAL_AVISO_MXN && riskLevel !== 'HIGH') {
+                    riskLevel = 'HIGH';
+                    riskReason = `Acumulado mensual RFC ${rfc}: $${totalAccumulated.toLocaleString('es-MX')} ` +
+                        `≥ 645 UMA ($${UMBRAL_AVISO_MXN.toLocaleString('es-MX')}). ` +
+                        `Aviso automático SAT por acumulación.`;
+                    riskScore = 100;
+                } else if (totalAccumulated >= UMBRAL_IDENT_MXN && riskLevel === 'LOW') {
+                    riskLevel = 'MEDIUM';
+                    riskReason = `Acumulado mensual RFC ${rfc}: $${totalAccumulated.toLocaleString('es-MX')} ` +
+                        `≥ 325 UMA ($${UMBRAL_IDENT_MXN.toLocaleString('es-MX')}). ` +
+                        `Identificación obligatoria por acumulación.`;
+                    riskScore = Math.max(riskScore, 60);
+                }
+
+                // Determine final status based on risk
+                let status = 'PENDING';
+                if (riskLevel === 'HIGH') {
+                    status = 'PENDING_REPORT';  // Needs SAT report (aviso automático)
+                } else if (riskLevel === 'MEDIUM') {
+                    status = 'PENDING_REVIEW';  // Needs manual review
+                }
+
+                // Enrich row data with risk + accumulation info
+                const enrichedRow = {
+                    ...rowData,
+                    status,
+                    // EBR Risk fields
+                    riskLevel,
+                    riskReason,
+                    riskScore,
+                    // Accumulation data
+                    monthlyAccumulated: totalAccumulated,
+                    previousAccumulated: previousAccumulated + batchPrevious,
+                    // Warnings (non-blocking)
+                    warnings: legalResult.warnings,
+                    hasWarnings: legalResult.warnings.length > 0,
+                    // Legal metadata
+                    validatedAt: uploadDate,
+                    umaReference: UMA_DIARIO,
+                    limiteEfectivoMXN: LIMITE_EFECTIVO_MXN,
+                };
+
+                validRows.push(enrichedRow);
+
+                if (legalResult.warnings.length > 0) {
+                    warningRows.push({
+                        row: rowData.sourceRow,
+                        warnings: legalResult.warnings,
+                        riskLevel,
+                        type: 'WARNING',
+                    });
+                }
+            }
+
+            // ── PHASE 3: Save to Firestore ──
             const savedIds = [];
             const BATCH_SIZE = 400;
 
@@ -890,22 +1266,73 @@ export const processUpload = onCall(
                 await batch.commit();
             }
 
-            logger.log('Upload processed:', {
+            // ── PHASE 4: Save upload summary to tenant audit log ──
+            const riskSummary = {
+                HIGH: validRows.filter(r => r.riskLevel === 'HIGH').length,
+                MEDIUM: validRows.filter(r => r.riskLevel === 'MEDIUM').length,
+                LOW: validRows.filter(r => r.riskLevel === 'LOW').length,
+            };
+
+            try {
+                await db.collection('tenants').doc(tenantId).collection('uploadHistory').add({
+                    uploadBatchId,
+                    activityType,
+                    periodYear: pYear,
+                    periodMonth: pMonth,
+                    fileName,
+                    totalRows: dataRows.length,
+                    validRows: validRows.length,
+                    rejectedRows: rejectedRows.length,
+                    formatErrors: formatErrors.length,
+                    warningRows: warningRows.length,
+                    riskSummary,
+                    uploadedBy: userId,
+                    createdAt: FieldValue.serverTimestamp(),
+                });
+            } catch (auditErr) {
+                logger.warn('Failed to save upload audit:', auditErr.message);
+            }
+
+            logger.log('Upload processed with legal validation:', {
                 tenantId, activityType, fileName,
                 totalRows: dataRows.length,
                 validRows: validRows.length,
-                errors: errors.length,
-                user: request.auth.uid,
+                formatErrors: formatErrors.length,
+                rejectedRows: rejectedRows.length,
+                warningRows: warningRows.length,
+                riskSummary,
+                user: userId,
             });
 
+            // ── Return comprehensive result ──
             return {
                 success: true,
+                // Counts
                 recordsProcessed: validRows.length,
-                recordsWithErrors: errors.length,
+                recordsRejected: rejectedRows.length,
+                recordsWithWarnings: warningRows.length,
+                recordsWithErrors: formatErrors.length,
                 totalRecords: dataRows.length,
-                errors: errors.slice(0, 50),
-                hasMoreErrors: errors.length > 50,
+                // Risk summary
+                riskSummary,
+                // Detailed errors (format + legal rejects)
+                errors: [
+                    ...formatErrors.slice(0, 25),
+                    ...rejectedRows.slice(0, 25),
+                ].slice(0, 50),
+                hasMoreErrors: (formatErrors.length + rejectedRows.length) > 50,
+                // Warnings (non-blocking)
+                warnings: warningRows.slice(0, 30),
+                hasMoreWarnings: warningRows.length > 30,
+                // Metadata
                 uploadBatchId,
+                // Legal reference info
+                legalContext: {
+                    umaDaily: UMA_DIARIO,
+                    limiteEfectivoMXN: LIMITE_EFECTIVO_MXN,
+                    umbralAvisoMXN: UMBRAL_AVISO_MXN,
+                    umbralIdentMXN: UMBRAL_IDENT_MXN,
+                },
             };
         } catch (error) {
             if (error instanceof HttpsError) throw error;
