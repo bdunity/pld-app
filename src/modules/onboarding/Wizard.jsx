@@ -46,6 +46,7 @@ export function Wizard() {
     rfc: '',
     razonSocial: '',
     regimenFiscal: '',
+    claveSujetoObligado: '',
     // Paso 2: Representación
     nombreOficialCumplimiento: '',
     rfcRepresentante: '',
@@ -91,6 +92,7 @@ export function Wizard() {
         rfc: formData.rfc.toUpperCase(),
         razonSocial: formData.razonSocial,
         regimenFiscal: formData.regimenFiscal,
+        claveSujetoObligado: formData.claveSujetoObligado || '',
         // Representante
         oficialCumplimiento: {
           nombre: formData.nombreOficialCumplimiento,

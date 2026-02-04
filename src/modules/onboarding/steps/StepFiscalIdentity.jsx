@@ -15,6 +15,7 @@ export function StepFiscalIdentity({ data, onUpdate, onNext }) {
       rfc: data.rfc || '',
       razonSocial: data.razonSocial || '',
       regimenFiscal: data.regimenFiscal || '',
+      claveSujetoObligado: data.claveSujetoObligado || '',
     },
   });
 
@@ -110,6 +111,31 @@ export function StepFiscalIdentity({ data, onUpdate, onNext }) {
           {errors.regimenFiscal && (
             <p className="mt-1 text-sm text-error">{errors.regimenFiscal.message}</p>
           )}
+        </div>
+
+        {/* Clave Sujeto Obligado */}
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <label className="block text-sm font-medium text-secondary-700">
+              Clave Sujeto Obligado
+            </label>
+            <div className="group relative">
+              <HelpCircle className="w-4 h-4 text-secondary-400 cursor-help" />
+              <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-64 p-2 bg-secondary-800 text-white text-xs rounded-lg shadow-lg z-10">
+                Clave asignada por la UIF/SAT al registrarte como sujeto obligado.
+                Si aún no la tienes, puedes dejarla en blanco y se usará tu RFC.
+              </div>
+            </div>
+          </div>
+          <Input
+            placeholder="Ej: SO-12345 (opcional)"
+            maxLength={20}
+            error={errors.claveSujetoObligado?.message}
+            {...register('claveSujetoObligado')}
+          />
+          <p className="mt-1 text-xs text-secondary-500">
+            Si no cuentas con ella, se usará tu RFC como identificador en los reportes XML.
+          </p>
         </div>
 
         {/* Submit button */}

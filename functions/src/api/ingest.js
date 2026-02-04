@@ -62,6 +62,17 @@ const CATALOGS = {
         { value: 'AR', label: 'AR-Argentina' },
         { value: 'OT', label: 'OT-Otro' },
     ],
+    tipoJuego: [
+        { value: '1', label: '1-Casino' },
+        { value: '2', label: '2-Apuestas deportivas' },
+        { value: '3', label: '3-Sorteo' },
+        { value: '4', label: '4-Lotería' },
+        { value: '5', label: '5-Bingo' },
+        { value: '6', label: '6-Máquinas tragamonedas' },
+        { value: '7', label: '7-Juego de mesa' },
+        { value: '8', label: '8-Apuestas en línea' },
+        { value: '9', label: '9-Otro' },
+    ],
 };
 
 // ============================================================================
@@ -276,7 +287,9 @@ const OPERATION_COLUMNS = {
         { key: 'monto', label: 'Monto Operación', required: true, type: 'number', section: 'operacion' },
         { key: 'moneda', label: 'Moneda', required: true, type: 'catalog', catalog: 'moneda', section: 'operacion' },
         { key: 'instrumentoMonetario', label: 'Instrumento Monetario', required: true, type: 'catalog', catalog: 'instrumentoMonetario', section: 'operacion' },
-        { key: 'tipoJuego', label: 'Tipo Juego/Sorteo', required: true, type: 'string', section: 'operacion' },
+        { key: 'tipoJuego', label: 'Tipo Juego/Sorteo', required: true, type: 'catalog', catalog: 'tipoJuego', section: 'operacion' },
+        { key: 'numeroCuentaJuego', label: 'Número Cuenta Jugador', required: false, type: 'string', section: 'operacion' },
+        { key: 'folioOperacion', label: 'Folio Operación', required: false, type: 'string', section: 'operacion' },
         { key: 'premioObtenido', label: 'Premio Obtenido', required: false, type: 'number', section: 'operacion' },
     ],
     TARJETAS_PREPAGO: [

@@ -65,6 +65,11 @@ export const fiscalIdentitySchema = z.object({
   regimenFiscal: z
     .string()
     .min(1, 'El régimen fiscal es requerido'),
+  claveSujetoObligado: z
+    .string()
+    .max(20, 'La clave no puede exceder 20 caracteres')
+    .optional()
+    .or(z.literal('')),
 });
 
 // Paso 2: Representación
@@ -105,6 +110,7 @@ export const onboardingSchema = z.object({
   rfc: fiscalIdentitySchema.shape.rfc,
   razonSocial: fiscalIdentitySchema.shape.razonSocial,
   regimenFiscal: fiscalIdentitySchema.shape.regimenFiscal,
+  claveSujetoObligado: fiscalIdentitySchema.shape.claveSujetoObligado,
   // Paso 2
   nombreOficialCumplimiento: representationSchema.shape.nombreOficialCumplimiento,
   rfcRepresentante: representationSchema.shape.rfcRepresentante,

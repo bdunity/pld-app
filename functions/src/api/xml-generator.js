@@ -678,7 +678,9 @@ function buildDetalleOperacion(avisoDoc, activityType, op) {
     // ── Activity-specific fields ──
     switch (activityType) {
         case 'JUEGOS_APUESTAS':
-            if (op.tipoJuego) detDoc.ele('tipo_juego').txt(sanitizeTextSAT(op.tipoJuego, 50));
+            if (op.tipoJuego) detDoc.ele('tipo_juego').txt(extractCatalogCode(op.tipoJuego));
+            if (op.numeroCuentaJuego) detDoc.ele('numero_cuenta').txt(sanitizeTextSAT(op.numeroCuentaJuego, 30));
+            if (op.folioOperacion) detDoc.ele('folio_operacion').txt(sanitizeTextSAT(op.folioOperacion, 50));
             if (op.premioObtenido) detDoc.ele('premio_obtenido').txt(formatMonto(op.premioObtenido));
             break;
 
