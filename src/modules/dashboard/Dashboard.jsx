@@ -27,6 +27,8 @@ import {
   RefreshCw,
   Briefcase,
   Eye,
+  Shield,
+  AlertOctagon,
 } from 'lucide-react';
 
 // Meses
@@ -80,7 +82,6 @@ export function Dashboard() {
   // KPIs CALCULATIONS
   // ========================================
   const kpis = useMemo(() => {
-    const now = new Date();
     const thisMonth = currentMonth;
     const thisYear = currentYear;
 
@@ -132,8 +133,19 @@ export function Dashboard() {
       byActivity[act].monto += isNaN(m) ? 0 : m;
     });
 
+    // --- EBR Risk Distribution ---
+    const riskHigh = operations.filter(op => op.riskLevel === 'HIGH').length;
+    const riskMedium = operations.filter(op => op.riskLevel === 'MEDIUM').length;
+    const riskLow = operations.filter(op => !op.riskLevel || op.riskLevel === 'LOW').length;
+
+    // --- Status Distribution ---
+    const statusPendingReport = operations.filter(op => op.status === 'PENDING_REPORT').length;
+    const statusPendingReview = operations.filter(op => op.status === 'PENDING_REVIEW').length;
+    const statusReported = operations.filter(op => op.status === 'REPORTED' || op.reported === true || op.xmlReported === true).length;
+    const statusPending = operations.filter(op => op.status === 'PENDING' || (!op.status && !op.reported && !op.xmlReported)).length;
+
     // --- Reported vs Unreported ---
-    const reported = operations.filter(op => op.reported === true || op.xmlReported === true).length;
+    const reported = statusReported;
     const unreported = totalOps - reported;
     const reportingRate = totalOps > 0 ? ((reported / totalOps) * 100).toFixed(1) : 0;
 
@@ -178,12 +190,13 @@ export function Dashboard() {
     }
 
     // --- Pending for current month ---
-    const pendingThisMonth = opsThisMonth.filter(op => !op.reported && !op.xmlReported).length;
+    const pendingThisMonth = opsThisMonth.filter(op => !op.reported && !op.xmlReported && op.status !== 'REPORTED').length;
 
     // --- Compliance status ---
     let complianceStatus = 'SIN_DATOS';
     if (totalOps > 0) {
-      if (parseFloat(reportingRate) >= 100) complianceStatus = 'COMPLETO';
+      if (riskHigh > 0 && statusPendingReport > 0) complianceStatus = 'ALERTA_ALTA';
+      else if (parseFloat(reportingRate) >= 100) complianceStatus = 'COMPLETO';
       else if (parseFloat(reportingRate) >= 80) complianceStatus = 'PARCIAL';
       else if (parseFloat(reportingRate) > 0) complianceStatus = 'PENDIENTE';
       else complianceStatus = 'SIN_REPORTAR';
@@ -211,6 +224,14 @@ export function Dashboard() {
       monthlyData,
       pendingThisMonth,
       complianceStatus,
+      // NEW: Risk & Status KPIs
+      riskHigh,
+      riskMedium,
+      riskLow,
+      statusPendingReport,
+      statusPendingReview,
+      statusReported,
+      statusPending,
     };
   }, [operations, xmlHistory, currentMonth, currentYear]);
 
@@ -332,41 +353,121 @@ export function Dashboard() {
           </div>
         </Card>
 
-        {/* Clientes Únicos */}
-        <Card className="p-5 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-violet-50 rounded-bl-full opacity-60" />
+        {/* Riesgo Alto - Pendientes de Reporte */}
+        <Card className={`p-5 relative overflow-hidden ${kpis.statusPendingReport > 0 ? 'ring-2 ring-red-300' : ''}`}>
+          <div className="absolute top-0 right-0 w-24 h-24 bg-red-50 rounded-bl-full opacity-60" />
           <div className="relative">
             <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center">
-                <Users className="w-5 h-5 text-violet-600" />
+              <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                <ShieldAlert className="w-5 h-5 text-red-600" />
               </div>
+              {kpis.statusPendingReport > 0 && (
+                <span className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-red-100 text-red-700 animate-pulse">
+                  <AlertOctagon className="w-3 h-3" />
+                  Urgente
+                </span>
+              )}
             </div>
-            <p className="text-3xl font-bold text-secondary-900">{kpis.uniqueClients}</p>
-            <p className="text-sm text-secondary-500 mt-1">Clientes Únicos</p>
-            <p className="text-xs text-secondary-400 mt-1">Por RFC registrado</p>
+            <p className="text-3xl font-bold text-red-700">{kpis.statusPendingReport}</p>
+            <p className="text-sm text-secondary-500 mt-1">Pendientes de Reporte</p>
+            <p className="text-xs text-red-500 mt-1">Riesgo ALTO — Art. 17 LFPIORPI</p>
           </div>
         </Card>
 
-        {/* XMLs Generados */}
-        <Card className="p-5 relative overflow-hidden">
+        {/* Pendientes de Revisión */}
+        <Card className={`p-5 relative overflow-hidden ${kpis.statusPendingReview > 0 ? 'ring-2 ring-amber-300' : ''}`}>
           <div className="absolute top-0 right-0 w-24 h-24 bg-amber-50 rounded-bl-full opacity-60" />
           <div className="relative">
             <div className="flex items-center justify-between mb-3">
               <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-                <FileCode className="w-5 h-5 text-amber-600" />
+                <AlertTriangle className="w-5 h-5 text-amber-600" />
               </div>
             </div>
-            <p className="text-3xl font-bold text-secondary-900">{kpis.totalXmls}</p>
-            <p className="text-sm text-secondary-500 mt-1">XMLs Generados</p>
-            <p className="text-xs text-secondary-400 mt-1">{kpis.xmlsThisMonth} este mes</p>
+            <p className="text-3xl font-bold text-amber-700">{kpis.statusPendingReview}</p>
+            <p className="text-sm text-secondary-500 mt-1">Pendientes de Revisión</p>
+            <p className="text-xs text-amber-500 mt-1">Riesgo MEDIO — Requiere análisis</p>
           </div>
         </Card>
       </div>
 
       {/* ========================================
-          ROW 2: Compliance Status + Reporting Progress
+          ROW 2: EBR Semaphore + Compliance Status + Reporting Progress
           ======================================== */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* EBR Risk Semaphore */}
+        <Card className="p-6">
+          <h3 className="text-sm font-semibold text-secondary-700 mb-4 flex items-center gap-2">
+            <Shield className="w-4 h-4 text-primary-600" />
+            Semáforo de Riesgo (EBR)
+          </h3>
+
+          {kpis.totalOps === 0 ? (
+            <div className="text-center py-8">
+              <Shield className="w-10 h-10 text-secondary-300 mx-auto mb-2" />
+              <p className="text-sm text-secondary-500">Sin operaciones cargadas</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* HIGH */}
+              <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-red-500" />
+                  <span className="text-sm font-medium text-red-700">Riesgo Alto</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-bold text-red-700">{kpis.riskHigh}</span>
+                  <span className="text-xs text-red-500">
+                    {kpis.totalOps > 0 ? ((kpis.riskHigh / kpis.totalOps) * 100).toFixed(0) : 0}%
+                  </span>
+                </div>
+              </div>
+
+              {/* MEDIUM */}
+              <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-amber-500" />
+                  <span className="text-sm font-medium text-amber-700">Riesgo Medio</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-bold text-amber-700">{kpis.riskMedium}</span>
+                  <span className="text-xs text-amber-500">
+                    {kpis.totalOps > 0 ? ((kpis.riskMedium / kpis.totalOps) * 100).toFixed(0) : 0}%
+                  </span>
+                </div>
+              </div>
+
+              {/* LOW */}
+              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-green-500" />
+                  <span className="text-sm font-medium text-green-700">Riesgo Bajo</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-bold text-green-700">{kpis.riskLow}</span>
+                  <span className="text-xs text-green-500">
+                    {kpis.totalOps > 0 ? ((kpis.riskLow / kpis.totalOps) * 100).toFixed(0) : 0}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Visual bar */}
+              {kpis.totalOps > 0 && (
+                <div className="h-4 rounded-full overflow-hidden flex mt-2">
+                  {kpis.riskHigh > 0 && (
+                    <div className="bg-red-500 h-full" style={{ width: `${(kpis.riskHigh / kpis.totalOps) * 100}%` }} />
+                  )}
+                  {kpis.riskMedium > 0 && (
+                    <div className="bg-amber-500 h-full" style={{ width: `${(kpis.riskMedium / kpis.totalOps) * 100}%` }} />
+                  )}
+                  {kpis.riskLow > 0 && (
+                    <div className="bg-green-500 h-full" style={{ width: `${(kpis.riskLow / kpis.totalOps) * 100}%` }} />
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
+
         {/* Compliance Status */}
         <Card className="p-6">
           <h3 className="text-sm font-semibold text-secondary-700 mb-4 flex items-center gap-2">
@@ -375,6 +476,18 @@ export function Dashboard() {
           </h3>
 
           <div className="text-center py-4">
+            {kpis.complianceStatus === 'ALERTA_ALTA' && (
+              <>
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 animate-pulse">
+                  <AlertOctagon className="w-8 h-8 text-red-600" />
+                </div>
+                <p className="text-lg font-bold text-red-700">Alerta de Riesgo Alto</p>
+                <p className="text-sm text-red-600 mt-1">{kpis.statusPendingReport} operaciones de alto riesgo sin reportar</p>
+                <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-xs text-red-700">Generar XML y reportar al SAT antes del día 17</p>
+                </div>
+              </>
+            )}
             {kpis.complianceStatus === 'COMPLETO' && (
               <>
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -462,66 +575,58 @@ export function Dashboard() {
             </div>
           </div>
         </Card>
+      </div>
 
-        {/* XML Validation Summary */}
+      {/* ========================================
+          ROW 3: Status Pipeline + Monthly Trend
+          ======================================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Status Pipeline */}
         <Card className="p-6">
           <h3 className="text-sm font-semibold text-secondary-700 mb-4 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-primary-600" />
-            Validación XML (SAT)
+            <Clock className="w-4 h-4 text-primary-600" />
+            Pipeline de Operaciones por Estatus
           </h3>
 
-          {kpis.totalXmls === 0 ? (
-            <div className="text-center py-8">
-              <FileCode className="w-10 h-10 text-secondary-300 mx-auto mb-2" />
-              <p className="text-sm text-secondary-500">No hay XMLs generados aún</p>
+          {kpis.totalOps === 0 ? (
+            <div className="text-center py-12">
+              <Clock className="w-10 h-10 text-secondary-300 mx-auto mb-2" />
+              <p className="text-sm text-secondary-500">Sin operaciones</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {/* Valid */}
-              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-secondary-50 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                  <span className="text-sm font-medium text-green-700">Válidos</span>
+                  <div className="w-2.5 h-2.5 rounded-full bg-secondary-400" />
+                  <span className="text-sm text-secondary-700">Pendiente (nueva)</span>
                 </div>
-                <span className="text-lg font-bold text-green-700">{kpis.validXmls}</span>
+                <span className="text-lg font-bold text-secondary-700">{kpis.statusPending}</span>
               </div>
-
-              {/* Warnings */}
               <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-amber-600" />
-                  <span className="text-sm font-medium text-amber-700">Con Advertencias</span>
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                  <span className="text-sm text-amber-700">En revisión (riesgo medio)</span>
                 </div>
-                <span className="text-lg font-bold text-amber-700">{kpis.warningXmls}</span>
+                <span className="text-lg font-bold text-amber-700">{kpis.statusPendingReview}</span>
               </div>
-
-              {/* Errors */}
               <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <XCircle className="w-5 h-5 text-red-600" />
-                  <span className="text-sm font-medium text-red-700">Con Errores</span>
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                  <span className="text-sm text-red-700">Pendiente reporte (riesgo alto)</span>
                 </div>
-                <span className="text-lg font-bold text-red-700">{kpis.errorXmls}</span>
+                <span className="text-lg font-bold text-red-700">{kpis.statusPendingReport}</span>
               </div>
-
-              {/* Success rate */}
-              <div className="pt-2 border-t border-secondary-200">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-secondary-500">Tasa de éxito</span>
-                  <span className="text-sm font-bold text-secondary-900">
-                    {kpis.totalXmls > 0 ? ((kpis.validXmls / kpis.totalXmls) * 100).toFixed(0) : 0}%
-                  </span>
+              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                  <span className="text-sm text-green-700">Reportadas al SAT</span>
                 </div>
+                <span className="text-lg font-bold text-green-700">{kpis.statusReported}</span>
               </div>
             </div>
           )}
         </Card>
-      </div>
 
-      {/* ========================================
-          ROW 3: Monthly Trend Chart + Activity Breakdown
-          ======================================== */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Monthly Trend - Bar Chart */}
         <Card className="p-6">
           <h3 className="text-sm font-semibold text-secondary-700 mb-4 flex items-center gap-2">
@@ -562,19 +667,23 @@ export function Dashboard() {
             </div>
           )}
         </Card>
+      </div>
 
+      {/* ========================================
+          ROW 4: Activity Breakdown + XML Validation + Pending
+          ======================================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Activity Breakdown */}
         <Card className="p-6">
           <h3 className="text-sm font-semibold text-secondary-700 mb-4 flex items-center gap-2">
             <Briefcase className="w-4 h-4 text-primary-600" />
-            Operaciones por Actividad Vulnerable
+            Operaciones por Actividad
           </h3>
 
           {Object.keys(kpis.byActivity).length === 0 ? (
             <div className="text-center py-12">
               <Briefcase className="w-10 h-10 text-secondary-300 mx-auto mb-2" />
               <p className="text-sm text-secondary-500">Sin actividades registradas</p>
-              <p className="text-xs text-secondary-400 mt-1">Las operaciones aparecerán aquí por tipo</p>
             </div>
           ) : (
             <div className="space-y-2 max-h-72 overflow-y-auto">
@@ -607,13 +716,55 @@ export function Dashboard() {
             </div>
           )}
         </Card>
-      </div>
 
-      {/* ========================================
-          ROW 4: Quick Actions + Recent Activity
-          ======================================== */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Pending This Month */}
+        {/* XML Validation Summary */}
+        <Card className="p-6">
+          <h3 className="text-sm font-semibold text-secondary-700 mb-4 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-primary-600" />
+            Validación XML (SAT)
+          </h3>
+
+          {kpis.totalXmls === 0 ? (
+            <div className="text-center py-8">
+              <FileCode className="w-10 h-10 text-secondary-300 mx-auto mb-2" />
+              <p className="text-sm text-secondary-500">No hay XMLs generados aún</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <span className="text-sm font-medium text-green-700">Válidos</span>
+                </div>
+                <span className="text-lg font-bold text-green-700">{kpis.validXmls}</span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-600" />
+                  <span className="text-sm font-medium text-amber-700">Con Advertencias</span>
+                </div>
+                <span className="text-lg font-bold text-amber-700">{kpis.warningXmls}</span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <XCircle className="w-5 h-5 text-red-600" />
+                  <span className="text-sm font-medium text-red-700">Con Errores</span>
+                </div>
+                <span className="text-lg font-bold text-red-700">{kpis.errorXmls}</span>
+              </div>
+              <div className="pt-2 border-t border-secondary-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-secondary-500">Tasa de éxito</span>
+                  <span className="text-sm font-bold text-secondary-900">
+                    {kpis.totalXmls > 0 ? ((kpis.validXmls / kpis.totalXmls) * 100).toFixed(0) : 0}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* Pending This Month + Summary */}
         <Card className="p-6">
           <h3 className="text-sm font-semibold text-secondary-700 mb-4 flex items-center gap-2">
             <Clock className="w-4 h-4 text-primary-600" />
@@ -642,80 +793,25 @@ export function Dashboard() {
               </div>
             )}
           </div>
-        </Card>
 
-        {/* Platform Summary */}
-        <Card className="p-6 lg:col-span-2">
-          <h3 className="text-sm font-semibold text-secondary-700 mb-4 flex items-center gap-2">
-            <LayoutDashboard className="w-4 h-4 text-primary-600" />
-            Resumen de Plataforma
-          </h3>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="text-center p-3 bg-blue-50 rounded-lg">
-              <FileSpreadsheet className="w-6 h-6 text-blue-600 mx-auto mb-1" />
-              <p className="text-lg font-bold text-blue-700">{kpis.totalOps}</p>
-              <p className="text-xs text-blue-600">Operaciones</p>
-            </div>
-            <div className="text-center p-3 bg-emerald-50 rounded-lg">
-              <DollarSign className="w-6 h-6 text-emerald-600 mx-auto mb-1" />
-              <p className="text-lg font-bold text-emerald-700">{formatCompact(kpis.totalMonto)}</p>
-              <p className="text-xs text-emerald-600">Monto Total</p>
-            </div>
-            <div className="text-center p-3 bg-violet-50 rounded-lg">
-              <Users className="w-6 h-6 text-violet-600 mx-auto mb-1" />
+          {/* Quick stats */}
+          <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-secondary-200">
+            <div className="text-center p-2 bg-violet-50 rounded-lg">
               <p className="text-lg font-bold text-violet-700">{kpis.uniqueClients}</p>
               <p className="text-xs text-violet-600">Clientes</p>
             </div>
-            <div className="text-center p-3 bg-amber-50 rounded-lg">
-              <FileCode className="w-6 h-6 text-amber-600 mx-auto mb-1" />
+            <div className="text-center p-2 bg-amber-50 rounded-lg">
               <p className="text-lg font-bold text-amber-700">{kpis.totalXmls}</p>
               <p className="text-xs text-amber-600">XMLs</p>
             </div>
           </div>
-
-          {/* Recent XML History */}
-          {xmlHistory.length > 0 && (
-            <div className="mt-4">
-              <p className="text-xs font-medium text-secondary-500 mb-2">Últimos XMLs generados</p>
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {xmlHistory.slice(0, 5).map((xml, idx) => {
-                  const date = xml.generatedAt?.toDate?.()
-                    ? xml.generatedAt.toDate()
-                    : new Date(xml.generatedAt);
-                  const status = xml.validationStatus || xml.status || 'PENDIENTE';
-                  return (
-                    <div key={idx} className="flex items-center justify-between p-2 bg-secondary-50 rounded-lg text-sm">
-                      <div className="flex items-center gap-2">
-                        <FileCode className="w-4 h-4 text-secondary-400" />
-                        <span className="text-secondary-700 font-medium">
-                          {getActivityLabel(xml.activityType || xml.activity)}
-                        </span>
-                        <span className="text-xs text-secondary-400">
-                          {MONTH_NAMES[xml.periodMonth]}/{xml.periodYear}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {status === 'VALIDO' && <CheckCircle className="w-4 h-4 text-green-500" />}
-                        {status === 'VALIDO_CON_ADVERTENCIAS' && <AlertTriangle className="w-4 h-4 text-amber-500" />}
-                        {status === 'ERROR' && <XCircle className="w-4 h-4 text-red-500" />}
-                        <span className="text-xs text-secondary-400">
-                          {date.toLocaleDateString('es-MX')}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </Card>
       </div>
 
       {/* Footer note */}
       <div className="text-center py-2">
         <p className="text-xs text-secondary-400">
-          Los KPIs se actualizan en tiempo real con base en las operaciones cargadas. En el futuro podrás personalizar los indicadores de acuerdo a tus necesidades.
+          Los KPIs se calculan en tiempo real sobre las operaciones cargadas. El semáforo EBR refleja la clasificación de riesgo según la LFPIORPI.
         </p>
       </div>
     </div>

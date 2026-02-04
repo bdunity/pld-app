@@ -17,6 +17,10 @@ import {
   X,
   FileWarning,
   RefreshCw,
+  ShieldAlert,
+  Shield,
+  Ban,
+  Info,
 } from 'lucide-react';
 
 // Meses del año
@@ -37,6 +41,13 @@ const MONTHS = [
 
 // Años disponibles
 const YEARS = [2025, 2026, 2027, 2028];
+
+// Risk level config
+const RISK_CONFIG = {
+  HIGH: { label: 'ALTO', color: 'red', icon: ShieldAlert, bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', badge: 'bg-red-100 text-red-700' },
+  MEDIUM: { label: 'MEDIO', color: 'amber', icon: AlertTriangle, bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', badge: 'bg-amber-100 text-amber-700' },
+  LOW: { label: 'BAJO', color: 'green', icon: Shield, bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700', badge: 'bg-green-100 text-green-700' },
+};
 
 export function IngestPage() {
   const { tenantData } = useAuth();
@@ -189,6 +200,16 @@ export function IngestPage() {
     setUploadResult(null);
     setError('');
     setUploadProgress(0);
+  };
+
+  // Format currency
+  const formatMoney = (amount) => {
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
   };
 
   return (
@@ -409,40 +430,171 @@ export function IngestPage() {
 
       {/* Resultados de la carga */}
       {uploadResult && (
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-secondary-900 flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-              Resultado de la Carga
-            </h2>
-            <Button variant="secondary" size="sm" onClick={resetForm} className="flex items-center gap-2">
-              <RefreshCw className="w-4 h-4" />
-              Nueva Carga
-            </Button>
-          </div>
+        <>
+          {/* Card principal de resultado */}
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-secondary-900 flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                Resultado de la Carga
+              </h2>
+              <Button variant="secondary" size="sm" onClick={resetForm} className="flex items-center gap-2">
+                <RefreshCw className="w-4 h-4" />
+                Nueva Carga
+              </Button>
+            </div>
 
-          {/* Resumen */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-              <p className="text-3xl font-bold text-green-700">{uploadResult.recordsProcessed}</p>
-              <p className="text-sm text-green-600">Registros procesados</p>
+            {/* Resumen numérico */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                <p className="text-3xl font-bold text-green-700">{uploadResult.recordsProcessed}</p>
+                <p className="text-sm text-green-600">Procesados</p>
+              </div>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                <p className="text-3xl font-bold text-red-700">{uploadResult.recordsRejected || 0}</p>
+                <p className="text-sm text-red-600">Rechazados</p>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
+                <p className="text-3xl font-bold text-amber-700">{uploadResult.recordsWithWarnings || 0}</p>
+                <p className="text-sm text-amber-600">Con advertencias</p>
+              </div>
+              <div className="bg-secondary-50 border border-secondary-200 rounded-lg p-4 text-center">
+                <p className="text-3xl font-bold text-secondary-700">{uploadResult.totalRecords}</p>
+                <p className="text-sm text-secondary-600">Total filas</p>
+              </div>
             </div>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-              <p className="text-3xl font-bold text-red-700">{uploadResult.recordsWithErrors}</p>
-              <p className="text-sm text-red-600">Con errores</p>
-            </div>
-            <div className="bg-secondary-50 border border-secondary-200 rounded-lg p-4 text-center">
-              <p className="text-3xl font-bold text-secondary-700">{uploadResult.totalRecords}</p>
-              <p className="text-sm text-secondary-600">Total filas</p>
-            </div>
-          </div>
 
-          {/* Lista de errores */}
+            {/* Mensaje de éxito o error */}
+            {uploadResult.recordsWithErrors === 0 && uploadResult.recordsRejected === 0 && (
+              <Alert variant="success">
+                Todos los registros fueron procesados correctamente.
+              </Alert>
+            )}
+          </Card>
+
+          {/* Semáforo de Riesgo EBR */}
+          {uploadResult.riskSummary && (
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold text-secondary-900 mb-4 flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-primary-600" />
+                Semáforo de Riesgo (EBR)
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                {['HIGH', 'MEDIUM', 'LOW'].map((level) => {
+                  const cfg = RISK_CONFIG[level];
+                  const count = uploadResult.riskSummary[level] || 0;
+                  const Icon = cfg.icon;
+                  return (
+                    <div key={level} className={`${cfg.bg} border ${cfg.border} rounded-lg p-4`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full ${cfg.badge} flex items-center justify-center`}>
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className={`text-2xl font-bold ${cfg.text}`}>{count}</p>
+                          <p className={`text-sm ${cfg.text}`}>Riesgo {cfg.label}</p>
+                        </div>
+                      </div>
+                      {level === 'HIGH' && count > 0 && (
+                        <p className="text-xs mt-2 text-red-600">
+                          Requieren reporte obligatorio (Art. 17 LFPIORPI)
+                        </p>
+                      )}
+                      {level === 'MEDIUM' && count > 0 && (
+                        <p className="text-xs mt-2 text-amber-600">
+                          Requieren revisión manual del oficial de cumplimiento
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Contexto legal / umbrales */}
+              {uploadResult.legalContext && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-blue-800 mb-2 flex items-center gap-2">
+                    <Info className="w-4 h-4" />
+                    Umbrales Legales Aplicados (LFPIORPI)
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                    <div>
+                      <p className="text-blue-600">UMA Diario</p>
+                      <p className="font-bold text-blue-800">{formatMoney(uploadResult.legalContext.umaDaily)}</p>
+                    </div>
+                    <div>
+                      <p className="text-blue-600">Límite Efectivo (Art. 32)</p>
+                      <p className="font-bold text-blue-800">{formatMoney(uploadResult.legalContext.limiteEfectivoMXN)}</p>
+                    </div>
+                    <div>
+                      <p className="text-blue-600">Umbral Aviso (645 UMA)</p>
+                      <p className="font-bold text-blue-800">{formatMoney(uploadResult.legalContext.umbralAvisoMXN)}</p>
+                    </div>
+                    <div>
+                      <p className="text-blue-600">Umbral Identif. (325 UMA)</p>
+                      <p className="font-bold text-blue-800">{formatMoney(uploadResult.legalContext.umbralIdentMXN)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* Advertencias legales */}
+          {uploadResult.warnings && uploadResult.warnings.length > 0 && (
+            <Card className="p-6">
+              <h3 className="text-sm font-semibold text-secondary-900 mb-3 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-500" />
+                Advertencias de Validación Legal ({uploadResult.warnings.length})
+              </h3>
+              <div className="max-h-64 overflow-y-auto border border-secondary-200 rounded-lg">
+                <table className="w-full text-sm">
+                  <thead className="bg-amber-50 sticky top-0">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-secondary-700 font-medium">Fila</th>
+                      <th className="px-4 py-2 text-left text-secondary-700 font-medium">Advertencias</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-secondary-100">
+                    {uploadResult.warnings.map((warn, index) => (
+                      <tr key={index} className="hover:bg-amber-50/50">
+                        <td className="px-4 py-2 text-secondary-900 font-medium">{warn.row}</td>
+                        <td className="px-4 py-2">
+                          <ul className="list-disc list-inside text-amber-700">
+                            {(warn.warnings || []).map((w, i) => (
+                              <li key={i}>{w}</li>
+                            ))}
+                          </ul>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+
+          {/* Registros rechazados (Art. 32) */}
+          {uploadResult.recordsRejected > 0 && (
+            <Card className="p-6 border-l-4 border-l-red-500">
+              <h3 className="text-sm font-semibold text-red-800 mb-3 flex items-center gap-2">
+                <Ban className="w-4 h-4 text-red-600" />
+                Registros Rechazados — Restricción Art. 32 ({uploadResult.recordsRejected})
+              </h3>
+              <p className="text-sm text-red-700 mb-3">
+                Estos registros superan el límite de efectivo permitido por la LFPIORPI Art. 32 y fueron rechazados automáticamente.
+                La operación NO debe realizarse en efectivo.
+              </p>
+            </Card>
+          )}
+
+          {/* Lista de errores de formato */}
           {uploadResult.errors && uploadResult.errors.length > 0 && (
-            <div>
-              <h3 className="text-sm font-medium text-secondary-900 mb-3 flex items-center gap-2">
+            <Card className="p-6">
+              <h3 className="text-sm font-semibold text-secondary-900 mb-3 flex items-center gap-2">
                 <FileWarning className="w-4 h-4 text-red-500" />
-                Errores de Validación ({uploadResult.errors.length})
+                Errores de Formato ({uploadResult.errors.length})
                 {uploadResult.hasMoreErrors && ' - Mostrando los primeros 50'}
               </h3>
               <div className="max-h-64 overflow-y-auto border border-secondary-200 rounded-lg">
@@ -469,16 +621,9 @@ export function IngestPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </Card>
           )}
-
-          {/* Mensaje de éxito */}
-          {uploadResult.recordsWithErrors === 0 && (
-            <Alert variant="success">
-              ¡Todos los registros fueron procesados correctamente!
-            </Alert>
-          )}
-        </Card>
+        </>
       )}
     </div>
   );
